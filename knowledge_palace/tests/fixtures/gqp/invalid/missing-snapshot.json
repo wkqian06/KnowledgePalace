@@ -1,0 +1,4 @@
+{
+  "schema_version": "1.0",
+  "hierarchies": [{"id": "domain-concept-work", "label": "Domain / Concept / Work", "levels": [{"level": 0, "label": "Domains", "node_kinds": ["domain"]}]}]
+}

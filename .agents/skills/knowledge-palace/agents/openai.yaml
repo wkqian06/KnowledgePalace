@@ -1,0 +1,12 @@
+# Optional Codex skill metadata — display/dependency information only.
+# Protocol content lives in knowledge_palace/ (shared core); this file must
+# never carry rules.
+name: knowledge-palace
+description: >-
+  Evidence-driven research knowledge OS over a markdown vault: ingest papers,
+  track gaps, discover cross-domain transfers, generate briefs, build the
+  internal style library, add domains, run governance and audits.
+entry: ../SKILL.md
+requires:
+  - python3 (stdlib only; >= 3.9)
+subagents_dir: ../../../../.codex/agents

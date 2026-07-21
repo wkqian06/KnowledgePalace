@@ -1,0 +1,29 @@
+{
+  "constraints": {
+    "read_only": true,
+    "tools": [
+      "Read",
+      "Grep",
+      "Glob"
+    ],
+    "whole_vault_scan": false,
+    "writes_files": false
+  },
+  "contract": "knowledge_palace/agents/palace-writer.md",
+  "expected_output": "section or document draft (Verdict/Evidence/Draft/Open questions)",
+  "inputs": {
+    "candidates": [],
+    "fixture": {
+      "path": "knowledge_palace/tests/fixtures/paper-synthetic.md",
+      "sha256": "58911284eb47430290a42ef4e55e78473aa4809f3d7cac5f554516284310ca17"
+    }
+  },
+  "package_kind": "palace-task",
+  "protocol": [
+    "knowledge_palace/protocol/PROTOCOL.md",
+    "knowledge_palace/protocol/COMMANDS.md"
+  ],
+  "role": "writer",
+  "schema_version": "1.0",
+  "templates_dir": "knowledge_palace/templates"
+}

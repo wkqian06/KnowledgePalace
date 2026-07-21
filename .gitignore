@@ -1,0 +1,39 @@
+# Local configuration and execution plans never enter the Public Framework.
+/.palace.toml
+/Plan.md
+/GoalPlan.md
+
+# Tool-test process records (prompt/command in → output → verdict) are
+# private execution material, like Plan.md and plans/.
+test/
+
+# Private KnowledgePalace data must remain outside Framework Git. These rules
+# also guard against accidentally reintroducing a legacy in-worktree layout.
+/papers/
+/gaps/
+/briefs/
+/transfers/
+/styles/
+/tasks/
+/plans/
+/goal_packets/
+/concepts.md
+/domains.md
+/fulltext/
+/chathistory.txt
+
+# Local documents remain private.
+docs/
+
+
+# Full texts are Source Cache objects, never Framework or Vault content.
+*.pdf
+*.epub
+
+.DS_Store
+
+# Python bytecode caches from the stdlib test/tool runs.
+__pycache__/
+
+Plan_process.md
+Plan.md

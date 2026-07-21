@@ -1,0 +1,38 @@
+{
+  "hierarchy_id": "domain-concept-work",
+  "level": 2,
+  "page": {
+    "items": [
+      {
+        "canonical_ref": {
+          "anchor": null,
+          "path": "gaps/gap-echo-noise.md",
+          "root": "vault"
+        },
+        "id": "gap-echo-noise",
+        "kind": "gap",
+        "label": "Echo noise floor unresolved"
+      },
+      {
+        "canonical_ref": {
+          "anchor": null,
+          "path": "views/echo.md",
+          "root": "vault"
+        },
+        "id": "vista-echo-panorama",
+        "kind": "hologram-view",
+        "label": "Echo panorama (future kind)"
+      }
+    ],
+    "next_cursor": "vista-echo-panorama",
+    "returned": 2,
+    "total": 5,
+    "truncated": true
+  },
+  "schema_version": "1.0",
+  "snapshot": {
+    "built_at": "2026-07-13T00:00:00Z",
+    "snapshot_id": "snap-001",
+    "vault_fingerprint": "fp-vault-001"
+  }
+}

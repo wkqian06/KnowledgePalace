@@ -1,0 +1,4 @@
+{"message": {"DOI": "10.99999/Fixture.Alpha2020", "title": ["Echo Cancellation in Alpha Systems"],
+  "container-title": ["Fixture Letters"], "issued": {"date-parts": [[2020, 1]]},
+  "type": "journal-article", "is-referenced-by-count": 40, "subject": ["Acoustics"],
+  "reference": [{"DOI": "https://doi.org/10.1000/ref.one"}, {"unstructured": "An unstructured reference"}]}}

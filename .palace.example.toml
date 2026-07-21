@@ -1,0 +1,8 @@
+# Paths are relative to this file, never to the shell CWD. The four roots must
+# exist, be distinct, and lie outside the Framework worktree. Whether a private
+# root (or its parent) is a Git repository is exclusively the user's business:
+# Palace neither inspects nor blocks it, and never runs Git against it.
+vault_dir = "../KnowledgePalace-vault"
+state_dir = "../KnowledgePalace-state"
+source_dir = "../KnowledgePalace-sources"
+workspace_dir = "../KnowledgePalace-workspace"

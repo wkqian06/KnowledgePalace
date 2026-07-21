@@ -1,0 +1,17 @@
+{
+  "canonical_ref": {
+    "anchor": null,
+    "path": "papers/alpha-2020-echo.md",
+    "root": "vault"
+  },
+  "content": "# Alpha 2020 \u2014 Echo\n\nSynthetic card body for work-alpha-2020-echo (fixture).",
+  "media_type": "text/markdown",
+  "node_id": "work-alpha-2020-echo",
+  "schema_version": "1.0",
+  "snapshot": {
+    "built_at": "2026-07-13T00:00:00Z",
+    "snapshot_id": "snap-001",
+    "vault_fingerprint": "fp-vault-001"
+  },
+  "truncated": false
+}

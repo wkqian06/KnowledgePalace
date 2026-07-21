@@ -1,0 +1,11 @@
+{
+  "id": "https://openalex.org/W1234567",
+  "doi": "https://doi.org/10.99999/fixture.alpha2020",
+  "display_name": "Echo Cancellation in Alpha Systems",
+  "publication_year": 2020,
+  "cited_by_count": 42,
+  "citation_normalized_percentile": {"value": 0.93},
+  "primary_location": {"source": {"display_name": "Fixture Letters", "type": "journal"}},
+  "topics": [{"display_name": "Echo Processing"}, {"display_name": "Signal Systems"}],
+  "referenced_works": ["https://openalex.org/W1", "https://openalex.org/W2"]
+}

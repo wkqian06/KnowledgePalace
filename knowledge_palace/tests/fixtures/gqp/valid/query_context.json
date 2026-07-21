@@ -1,0 +1,118 @@
+{
+  "children": {
+    "items": [
+      {
+        "canonical_ref": {
+          "anchor": null,
+          "path": "papers/gamma-2022-bridge.md",
+          "root": "vault"
+        },
+        "id": "work-gamma-2022-bridge",
+        "kind": "work",
+        "label": "Gamma 2022 \u2014 Bridge"
+      }
+    ],
+    "next_cursor": null,
+    "returned": 1,
+    "total": 1,
+    "truncated": false
+  },
+  "edges": {
+    "items": [
+      {
+        "from": "concept-gamma",
+        "id": "edge-004",
+        "kind": "bridges",
+        "to": "concept-echo"
+      }
+    ],
+    "next_cursor": null,
+    "returned": 1,
+    "total": 1,
+    "truncated": false
+  },
+  "entry_parent": null,
+  "node": {
+    "canonical_ref": {
+      "anchor": null,
+      "path": "concepts.md",
+      "root": "vault"
+    },
+    "id": "concept-gamma",
+    "kind": "concept",
+    "label": "Gamma Bridging"
+  },
+  "parents": [
+    {
+      "canonical_ref": {
+        "anchor": null,
+        "path": "domains.md",
+        "root": "vault"
+      },
+      "id": "domain-alpha",
+      "kind": "domain",
+      "label": "Alpha Domain"
+    },
+    {
+      "canonical_ref": {
+        "anchor": null,
+        "path": "domains.md",
+        "root": "vault"
+      },
+      "id": "domain-beta",
+      "kind": "domain",
+      "label": "Beta Domain"
+    }
+  ],
+  "schema_version": "1.0",
+  "sibling_groups": [
+    {
+      "page": {
+        "items": [
+          {
+            "canonical_ref": {
+              "anchor": null,
+              "path": "concepts.md",
+              "root": "vault"
+            },
+            "id": "concept-echo",
+            "kind": "concept",
+            "label": "Echo Cancellation"
+          }
+        ],
+        "next_cursor": null,
+        "returned": 1,
+        "total": 1,
+        "truncated": false
+      },
+      "parent_id": "domain-alpha"
+    },
+    {
+      "page": {
+        "items": [
+          {
+            "canonical_ref": {
+              "anchor": null,
+              "path": "concepts.md",
+              "root": "vault"
+            },
+            "id": "concept-foxtrot",
+            "kind": "concept",
+            "label": "Foxtrot Threshold"
+          }
+        ],
+        "next_cursor": null,
+        "returned": 1,
+        "total": 1,
+        "truncated": false
+      },
+      "parent_id": "domain-beta"
+    }
+  ],
+  "siblings": null,
+  "snapshot": {
+    "built_at": "2026-07-13T00:00:00Z",
+    "snapshot_id": "snap-001",
+    "vault_fingerprint": "fp-vault-001"
+  }
+}

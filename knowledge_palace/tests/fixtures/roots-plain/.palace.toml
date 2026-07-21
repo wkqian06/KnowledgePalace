@@ -1,0 +1,5 @@
+# synthetic fixture config — resolved against this file's directory
+vault_dir = "vault"
+state_dir = "state"
+source_dir = "source"
+workspace_dir = "workspace"
