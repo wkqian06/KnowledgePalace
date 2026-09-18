@@ -214,3 +214,18 @@ The authoritative table is [COMMANDS.md](knowledge_palace/protocol/COMMANDS.md).
 - **`knowledge_palace/workflows/`** — the task workflows the agent reads:
   collection, ingest, discussion, manuscript analysis, writing/polishing,
   feasibility.
+
+## Acknowledgements
+
+The three-layer design (immutable sources / LLM-maintained Markdown library /
+agent contract files), the ingest–query–lint loop and INDEX-first navigation
+follow Andrej Karpathy's
+[LLM Wiki pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f).
+KnowledgePalace replaces free-form summary pages with claim-level evidence —
+verbatim quotes with anchors, append-only corrections, confirm-before-write —
+and adds research-specific structure: gap relation tables, cross-domain
+transfers, bounded citation expansion and manuscript workflows.
+
+## License
+
+[MIT](LICENSE)

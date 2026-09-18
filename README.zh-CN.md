@@ -181,3 +181,16 @@ python3 -m knowledge_palace.tools.config_resolver
 - **`knowledge_palace/protocol/`**——协议正文（约束 AI 行为的规则原文）。
 - **`knowledge_palace/workflows/`**——代理按任务读取的工作流：搜集、
   阅读入库、讨论、论文分析、写作/润色、可行性。
+
+## 致谢
+
+三层结构（不可变原文 / LLM 维护的 Markdown 库 / 代理契约文件）、
+ingest–query–lint 循环和 INDEX 优先的导航方式，沿用了 Andrej Karpathy 的
+[LLM Wiki 模式](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)。
+KnowledgePalace 把自由摘要页换成了 Claim 级证据——逐字引句加出处、勘误只
+追加、先确认后写入——并加入科研专用结构：缺口关系表、跨领域迁移、有界的
+引用扩展和论文写作流程。
+
+## 许可证
+
+[MIT](LICENSE)
