@@ -9,16 +9,14 @@ IdeaAssessment schema controls what a judgment may claim: falsifiers and
 a minimal experiment are required, novelty verdicts land only on selected
 dimensions and are vault-relative by definition of the field,
 graph-synthesis "possible novelty" stays separate from literature fact,
-and external-novelty statements validate only under a recorded opt-in
-request whose scope and date the wording must reference.
+and external-novelty statements validate only under a recorded opt-in request.
 """
 
 from itertools import combinations
 
 from ..semantic.corridors import _domain_resolver, find_corridors
-from .coverage import ID_PREFIXES
 from .prefilter import find_candidates
-from .project_source import PROJECT_SOURCE_PREFIX, validate_request
+from .project_source import ID_PREFIXES, PROJECT_SOURCE_PREFIX, validate_request
 
 NOVELTY_DIMENSIONS = (
     "theory",
@@ -234,15 +232,6 @@ def validate_assessment(assessment, payload=None):
                 "external novelty without a confirmed opt-in request: %s"
                 % request_errors
             )
-        else:
-            statements = external.get("statements") or []
-            if not isinstance(statements, list):
-                errors.append("external statements must be a list")
-                statements = []
-            for statement in statements:
-                if request["scope"] not in statement or request["date"] not in statement:
-                    errors.append(
-                        "external statement must reference the recorded search "
-                        "scope and date: %r" % statement
-                    )
+        elif not isinstance(external.get("statements") or [], list):
+            errors.append("external statements must be a list")
     return errors

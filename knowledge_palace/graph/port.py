@@ -1,15 +1,13 @@
 """Production GraphQueryPort over the Derived State index snapshot.
 
 Read-only. The surface is exactly the five contract operations; every
-response carries schema_version + the index snapshot; a stale index refuses
-every operation with a typed ``stale_index`` error. Must pass
-``tools/gqp_validator.py`` and the contract tests unchanged.
+response carries schema_version + the index snapshot. Callers run
+``builder.ensure_index`` first so the snapshot on disk matches the Vault.
 """
 
 from pathlib import Path
 
-from ..tools import SCHEMA_VERSION
-from .builder import INDEX_RELPATH, load_index, vault_fingerprint
+from .builder import GQP_VERSION, INDEX_RELPATH, load_index
 
 _MAX_CONTENT = 200_000
 
@@ -40,34 +38,16 @@ class GraphQueryPort:
     # -- envelope helpers ---------------------------------------------------
 
     def _envelope(self, body):
-        message = {"schema_version": SCHEMA_VERSION, "snapshot": dict(self._snapshot)}
+        message = {"schema_version": GQP_VERSION, "snapshot": dict(self._snapshot)}
         message.update(body)
         return message
 
     def _error(self, code, text, evidence=None):
         return {
-            "schema_version": SCHEMA_VERSION,
+            "schema_version": GQP_VERSION,
             "snapshot": dict(self._snapshot),
             "error": {"code": code, "message": text, "evidence": evidence},
         }
-
-    def _stale(self):
-        # ponytail: full re-hash of every Vault *.md per call (~200 files
-        # today). mtime+size prefilter is the upgrade path when 5k-scale
-        # latency demands; correctness first — a stale index must never serve.
-        current = vault_fingerprint(self._vault)
-        if current != self._snapshot["vault_fingerprint"]:
-            return self._error(
-                "stale_index",
-                "index snapshot %s (vault %s) does not match current vault "
-                "fingerprint %s; rebuild the Graph Index"
-                % (
-                    self._snapshot["snapshot_id"],
-                    self._snapshot["vault_fingerprint"][:12],
-                    current[:12],
-                ),
-            )
-        return None
 
     def _page(self, ordered_ids, cursor, limit, to_item):
         if cursor is not None and cursor not in ordered_ids:
@@ -90,24 +70,15 @@ class GraphQueryPort:
     # -- the five operations (the complete surface) --------------------------
 
     def list_hierarchies(self):
-        stale = self._stale()
-        if stale:
-            return stale
         return self._envelope({"hierarchies": list(self._payload["hierarchies"])})
 
     def list_levels(self, hierarchy_id):
-        stale = self._stale()
-        if stale:
-            return stale
         spec = self._payload["hierarchies"][0]
         if hierarchy_id != spec["id"]:
             return self._error("unknown_hierarchy", "no hierarchy %r" % hierarchy_id)
         return self._envelope({"hierarchy_id": hierarchy_id, "levels": spec["levels"]})
 
     def query_level(self, hierarchy_id, level, cursor=None, limit=None):
-        stale = self._stale()
-        if stale:
-            return stale
         spec = self._payload["hierarchies"][0]
         if hierarchy_id != spec["id"]:
             return self._error("unknown_hierarchy", "no hierarchy %r" % hierarchy_id)
@@ -126,10 +97,8 @@ class GraphQueryPort:
             return self._error("bad_cursor", "cursor %r is not usable" % cursor)
         return self._envelope({"hierarchy_id": hierarchy_id, "level": level, "page": page})
 
-    def query_context(self, node_id, entry_parent=None, cursor=None, limit=None):
-        stale = self._stale()
-        if stale:
-            return stale
+    def query_context(self, node_id, entry_parent=None, cursor=None, limit=None,
+                      children_cursor=None, edges_cursor=None):
         if node_id not in self._payload["nodes"]:
             return self._error("unknown_node", "no node %r" % node_id)
         parent_ids = self._payload["parents"].get(node_id, [])
@@ -165,7 +134,7 @@ class GraphQueryPort:
                 sibling_groups.append({"parent_id": parent_id, "page": page})
 
         children = self._page(
-            self._children.get(node_id, []), None, limit, self._node_view
+            self._children.get(node_id, []), children_cursor, limit, self._node_view
         )
         touching = sorted(
             edge["id"]
@@ -173,7 +142,9 @@ class GraphQueryPort:
             if node_id in (edge["from"], edge["to"])
         )
         by_id = {edge["id"]: edge for edge in self._payload["edges"]}
-        edges = self._page(touching, None, limit, lambda e: dict(by_id[e]))
+        edges = self._page(touching, edges_cursor, limit, lambda e: dict(by_id[e]))
+        if children is None or edges is None:
+            return self._error("bad_cursor", "child or edge cursor is not usable")
         return self._envelope(
             {
                 "node": self._node_view(node_id),
@@ -187,9 +158,6 @@ class GraphQueryPort:
         )
 
     def get_content(self, node_id):
-        stale = self._stale()
-        if stale:
-            return stale
         if node_id not in self._payload["nodes"]:
             return self._error("unknown_node", "no node %r" % node_id)
         view = self._payload["nodes"][node_id]

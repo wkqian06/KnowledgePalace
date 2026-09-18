@@ -139,23 +139,19 @@ _Avoid_: Public policy, computed count
 
 ## Interaction
 
-**InteractionSession**:
-The resumable Derived-State record of one Ask/Idea exchange — question,
-mode, candidates, coverage, proposal decisions, history; deletable without
-knowledge loss.
-_Avoid_: Vault record, decision authority
+**Workflow**:
+One task instruction file under `knowledge_palace/workflows/` (collection,
+ingest, discussion, manuscript analysis, writing, feasibility) that the main
+agent reads for the requested command; shared steps are written once and
+reused.
+_Avoid_: Role sequence, Python state machine
 
-**CoverageReport**:
-The verdict structure gating what an answer may claim: sufficient, partial
-(covered part answered, holes named), or insufficient (no fabricated
-answer; an ExpansionProposal instead), with id-shaped evidence.
-_Avoid_: Domain gate, confidence score
-
-**ExpansionProposal**:
-A bounded, user-confirmable bridge from coverage holes to an
-Expansion Run (seeds/queries, depth ≤2, budget ≤50); rejection changes
-nothing.
-_Avoid_: Automatic search, executed run
+**Research Context**:
+The bounded, id-only selection `interaction.research_helpers.research_context`
+returns for a topic: candidates, Claims, relations, current syntheses, gaps and
+unread dependencies, capped at 15 candidates; the CLI adds the pending updates
+that touch it.
+_Avoid_: Whole-vault prompt, verified answer
 
 **NoveltyProfile**:
 The per-project selection of dimensions (theory, mechanism, method, data,
@@ -166,15 +162,15 @@ _Avoid_: Uniform "is the method new", global novelty score
 **IdeaAssessment**:
 The bounded idea-refine verdict: supporting/opposing/unknown evidence side
 by side, closest prior work, falsifiers and a minimal experiment required;
-novelty vault-relative by default, external statements only within a
-recorded search scope + date.
+novelty vault-relative by default, external statements only under a
+recorded opt-in request.
 _Avoid_: Absolute novelty claim, unbounded literature review
 
 **ProjectSource**:
 An author-supplied reference resolved against Vault identity first: hit →
-the existing Work is reused; miss → a verified session-local source that
-never auto-enters the Vault.
-_Avoid_: Auto-ingest, duplicate Work identity
+the existing Work is reused; miss → a temporary discovery locator. Adopting it
+runs the ingest workflow, after which the reference resolves to the saved Work.
+_Avoid_: Silent card creation, duplicate Work identity
 
 **ResearchProject**:
 One Workspace project (`projects/<slug>/`): document kind, audience,
@@ -193,21 +189,36 @@ immutable and exports never overwrite them.
 _Avoid_: Working draft, overwrite
 
 **ProjectBrief**:
-The frozen, fingerprinted writing contract: genre parameters, section
-plan, and the evidence package every writer package must stay within.
+The project's evidence contract: genre parameters, section plan and the
+evidence package (id-shaped refs with quotes and anchors) a section is written
+from. Materials feed writing but are never evidence refs.
 _Avoid_: Retrieval scope, mutable outline
 
-**RequirementsMatrix**:
-Anchored requirement rows from a solicitation with named
-section-coverage tracking; the no-solicitation fallback is born
-compliance-unverifiable.
-_Avoid_: Silent compliance claim, summarized coverage
+**Manuscript Analysis**:
+The compact working note write and polish share before touching prose:
+research question, central claim and evidence, argument and section roles,
+target passage and its job, user intent, canonical terms, unresolved inputs.
+Kept in `outline/manuscript-analysis.md` for a project; never a Claim.
+_Avoid_: Scored form, mandatory template
 
-**ExportPlan**:
-A replayable, deterministic pandoc invocation plan (CSL resolution,
-relative paths, exact arguments); outputs never overwrite anything and
-Markdown stays the canonical source.
-_Avoid_: Editing source, live network fetch
+**Research Notes**:
+A project's `research.md`: learning goals, working definitions, Synthesis rows
+that declare their Claim/Gap dependencies, decisions, constraints and
+Observations that point to registered materials.
+_Avoid_: Literature Claim, chat transcript
+
+**Feasibility Judgment**:
+The verdict on a specified design — 可执行 / 满足明确条件后可执行 / 需调整方案 /
+目前无法判断 — with the decisive conditions, the smallest useful pilot and the
+separation of scientific identifiability from operational feasibility. Kept in
+Research Notes on request.
+_Avoid_: Numeric feasibility score, field-completeness check
+
+**Pending Update**:
+A judgment (Gap/Brief/Transfer synthesis or project decision) whose declared
+evidence dependencies changed at index maintenance; it stays pending until a
+recorded review (retain / revise / withdraw) and reopens on later changes.
+_Avoid_: Automatic revision, authoritative edit
 
 ## Literature Expansion
 
@@ -268,24 +279,17 @@ and never duplicates protocol bodies.
 _Avoid_: Protocol authority, second protocol copy
 
 **Role Contract**:
-The platform-neutral definition of one read-only subagent role in the Shared
-Core, bound unchanged by every runtime's adapter.
-_Avoid_: Runtime adapter, prompt experiment
+The platform-neutral definition of one optional read-only specialist in the
+Shared Core, bound unchanged by every runtime's adapter; the main agent may
+run any workflow itself.
+_Avoid_: Runtime adapter, mandatory sequence
 
-**Task Package**:
-The deterministic, runtime-independent dispatch payload the Shared Core builds
-for one role over the orchestrator's handed inputs.
-_Avoid_: Chat transcript, cached authority
-
-**Palace Doctor**:
-The read-only diagnostic tool reporting root resolvability and both runtimes'
-contract completeness; it never writes and never uses the network.
-_Avoid_: Fixer, migration tool
-
-**Git Target Guard**:
-The advisory pre-flight check that refuses any Palace Git invocation whose CWD
-or target leaves the Public Framework, and any unauthorized push.
-_Avoid_: Sandbox, private-root inspector
+**Source Coverage and Reading Depth**:
+Two paper-card fields: `source_coverage` records the material actually held
+(full-text, excerpt, abstract, metadata); `read_depth` records how much of it
+was read (full, skim, abstract, metadata). Possessing a PDF is not reading it;
+metadata-only material carries no Claims.
+_Avoid_: Inferred full reading, quality score
 
 **Palace Viewer Export**:
 A deterministic, one-file static HTML build over the frozen GraphQueryPort —

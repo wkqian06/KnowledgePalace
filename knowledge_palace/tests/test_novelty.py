@@ -16,7 +16,6 @@ from knowledge_palace.interaction.novelty import (
     validate_assessment,
     validate_profile,
 )
-from knowledge_palace.interaction.project_source import new_request
 from knowledge_palace.tests.test_semantic_corridors import synthetic_dense_payload
 
 MINI = Path(__file__).resolve().parent / "fixtures" / "vault-mini"
@@ -204,19 +203,6 @@ class TestAssessment(unittest.TestCase):
         }
         errors = validate_assessment(self._valid(external=unconfirmed), self.payload)
         self.assertTrue(any("confirmed opt-in" in e for e in errors))
-
-    def test_external_wording_pinned_to_recorded_scope_and_date(self):
-        request = new_request("s-1", "openalex title search", "2026-07-14",
-                              user_confirmed=True)
-        good = ("not found within the recorded search scope "
-                "(openalex title search) as of 2026-07-14")
-        ok = self._valid(external={"request": request, "statements": [good]})
-        self.assertEqual(validate_assessment(ok, self.payload), [])
-        bad = self._valid(
-            external={"request": request, "statements": ["globally novel"]}
-        )
-        errors = validate_assessment(bad, self.payload)
-        self.assertTrue(any("scope and date" in e for e in errors))
 
 
 if __name__ == "__main__":

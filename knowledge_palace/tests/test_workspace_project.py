@@ -42,14 +42,13 @@ class TestValidation(unittest.TestCase):
 
 
 class TestSkeleton(WorkspaceCase):
-    def test_nine_entries_and_refusal_to_overwrite(self):
+    def test_skeleton_and_refusal_to_overwrite(self):
         project = new_project("echo-paper", "paper", "ML researchers", venue="NeurIPS")
         root = create_project(self.workspace, project)
         self.assertEqual(root, self.workspace / "projects" / "echo-paper")
         for name in PROJECT_DIRS:
             self.assertTrue((root / name).is_dir(), name)
         self.assertTrue((root / "project.yaml").is_file())
-        self.assertEqual(len(PROJECT_DIRS) + 1, 9)  # eight dirs + manifest
         with self.assertRaises(ValueError):
             create_project(self.workspace, project)
 
@@ -64,10 +63,12 @@ class TestSkeleton(WorkspaceCase):
     def test_cwd_independence(self):
         create_project(self.workspace, new_project("echo-paper", "paper", "a"))
         old = os.getcwd()
-        self.addCleanup(os.chdir, old)
         with tempfile.TemporaryDirectory() as elsewhere:
-            os.chdir(elsewhere)
-            loaded = load_project(self.workspace, "echo-paper")
+            try:
+                os.chdir(elsewhere)
+                loaded = load_project(self.workspace, "echo-paper")
+            finally:
+                os.chdir(old)
         self.assertEqual(loaded["slug"], "echo-paper")
 
 

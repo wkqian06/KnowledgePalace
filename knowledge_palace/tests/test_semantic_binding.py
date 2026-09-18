@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 from knowledge_palace.graph.identity import load_vault_identity, parse_claims
-from knowledge_palace.semantic.binding import validate_claims, validate_draft
+from knowledge_palace.semantic.binding import validate_claims
 
 MINI = Path(__file__).resolve().parent / "fixtures" / "vault-mini"
 REGISTRY = {"concept-echo": {}, "method-delta": {}, "concept-gamma": {}}
@@ -28,35 +28,32 @@ UNKNOWN_DRAFT = """## Claims
 """
 
 
+def report_for(draft):
+    claims, problems = parse_claims(draft, "draft")
+    return validate_claims(claims, REGISTRY), problems
+
+
 class TestBindingRule(unittest.TestCase):
     def test_bound_draft_passes(self):
-        report = validate_draft(BOUND_DRAFT, REGISTRY)
+        report, problems = report_for(BOUND_DRAFT)
+        self.assertEqual(problems, [])
         self.assertTrue(report["ok"], report)
         self.assertEqual(report["bound"], [1, 2])
-        self.assertEqual(report["claims"], 2)
 
     def test_unbound_claim_fails_with_typed_reason(self):
-        report = validate_draft(UNBOUND_DRAFT, REGISTRY)
+        report, _ = report_for(UNBOUND_DRAFT)
         self.assertFalse(report["ok"])
         self.assertEqual(report["unbound"], [(2, "no concept binding")])
         self.assertEqual(report["bound"], [1])
 
     def test_unknown_slug_fails_and_names_the_slugs(self):
-        report = validate_draft(UNKNOWN_DRAFT, REGISTRY)
+        report, _ = report_for(UNKNOWN_DRAFT)
         self.assertFalse(report["ok"])
         self.assertEqual(report["unknown"], [(1, ["concept-ghost"])])
 
-    def test_empty_draft_fails(self):
-        report = validate_draft("## Claims\n\nno claims here\n", REGISTRY)
-        self.assertFalse(report["ok"])
-        self.assertIn((0, "draft contains no claims"), report["unbound"])
-
-    def test_missing_anchor_still_fails_via_parse_problems(self):
-        report = validate_draft(
-            '## Claims\n\n- C1 [concept-echo]: "No anchor here."\n', REGISTRY
-        )
-        self.assertFalse(report["ok"])
-        self.assertTrue(report["parse_problems"])
+    def test_missing_anchor_is_a_parse_problem(self):
+        _, problems = report_for('## Claims\n\n- C1 [concept-echo]: "No anchor here."\n')
+        self.assertTrue(problems)
 
 
 class TestBackwardCompatibility(unittest.TestCase):

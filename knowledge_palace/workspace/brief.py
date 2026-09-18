@@ -1,19 +1,12 @@
-"""ProjectBrief — the frozen evidence contract every writer package cites.
+"""ProjectBrief — the evidence contract a project section is written from.
 
-A brief carries the genre parameters, the section plan, and the evidence
+A brief carries the genre parameters, the section plan and the evidence
 package: id-shaped refs (index ids or ``project-source:``), each with a
-verbatim quote AND its anchor (the evidence invariant follows the quote
-wherever it goes). Material ids may enter as writing input but are not
-legal evidence refs. ``freeze`` produces the canonical bytes and the
-sha256 fingerprint that pins every downstream package to exactly this
-brief.
+verbatim quote AND its anchor. Material ids may enter as writing input but
+are not legal evidence refs.
 """
 
-import hashlib
-import json
-
-from ..interaction.coverage import ID_PREFIXES
-from ..interaction.project_source import PROJECT_SOURCE_PREFIX
+from ..interaction.project_source import ID_PREFIXES, PROJECT_SOURCE_PREFIX
 from .material import MATERIAL_PREFIX
 from .revision import ASSEMBLED
 
@@ -43,13 +36,10 @@ def new_brief(project, problem, contribution, sections, evidence=(),
 
 
 def validate_brief(brief):
-    """Return violations; empty means the brief is freezable."""
+    """Return violations; empty means the brief can be written from."""
     if not isinstance(brief, dict):
         return ["brief must be a dict"]
     errors = []
-    for key in ("project", "problem", "contribution"):
-        if not brief.get(key):
-            errors.append("missing %s" % key)
     sections = brief.get("sections")
     if not isinstance(sections, list) or not sections:
         errors.append("sections must be a non-empty plan")
@@ -93,14 +83,3 @@ def validate_brief(brief):
                           % (index, material_id, MATERIAL_PREFIX))
     return errors
 
-
-def freeze(brief):
-    """Canonical bytes + sha256 fingerprint; invalid briefs refuse."""
-    errors = validate_brief(brief)
-    if errors:
-        raise ValueError("brief not freezable: %s" % errors)
-    canonical = json.dumps(brief, ensure_ascii=False, sort_keys=True)
-    return {
-        "fingerprint": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
-        "canonical": canonical,
-    }

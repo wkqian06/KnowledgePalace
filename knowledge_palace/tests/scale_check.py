@@ -225,18 +225,10 @@ def run(works):
             .get("page")
             or {}
         )
-        stale_probe = vault / "papers" / "scale-a-00000.md"
-        stale_probe.write_text(
-            stale_probe.read_text(encoding="utf-8") + "\n<!-- touched -->\n",
-            encoding="utf-8",
-        )
-        stale = port.list_hierarchies()
         results.append(check(
             "port-contract",
-            paged_ok and second.get("returned")
-            and (stale.get("error") or {}).get("code") == "stale_index",
+            paged_ok and second.get("returned"),
             page_returned=body.get("returned"),
-            stale_code=(stale.get("error") or {}).get("code"),
         ))
 
         # Uniform synthetic labels tie-rank alphabetically into one domain

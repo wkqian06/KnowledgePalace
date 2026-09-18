@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 from knowledge_palace.graph.builder import write_index
-from knowledge_palace.viewer.export import StaleIndexError, build_bundle, canonical_bytes
+from knowledge_palace.viewer.export import build_bundle, canonical_bytes
 
 MINI = Path(__file__).resolve().parent / "fixtures" / "vault-mini"
 
@@ -108,19 +108,6 @@ class TestVaultMiniWalk(ExportCase):
         self.assertNotIn('"root":"source"', blob)
 
 
-class TestStaleAbort(ExportCase):
-    def test_stale_index_raises_mid_walk(self):
-        vault = make_vault(self.root, works=1)
-        state = self.root / "state"
-        write_index(vault, state)
-        (vault / "papers" / "work-0.md").write_text(
-            (vault / "papers" / "work-0.md").read_text(encoding="utf-8") + "\n<!-- x -->\n",
-            encoding="utf-8",
-        )
-        with self.assertRaises(StaleIndexError):
-            build_bundle(vault, state)
-
-
 class TestPaginationHonesty(ExportCase):
     def test_query_level_pagination_followed_to_completion(self):
         vault = make_vault(self.root, works=5)
@@ -133,19 +120,17 @@ class TestPaginationHonesty(ExportCase):
         self.assertEqual(len(level2["node_ids"]), 5)
         self.assertEqual(sum(1 for v in payload["nodes"].values() if v["kind"] == "work"), 5)
 
-    def test_children_truncation_honestly_reported_not_hidden(self):
+    def test_children_and_edges_pagination_reaches_all_claims(self):
         vault = make_vault(self.root, works=1, claims_per_work=5)
         state = self.root / "state"
         write_index(vault, state)
         payload = build_bundle(vault, state, page_limit=2)  # forces work's children to truncate
         work_ctx = payload["contexts"]["work:work-0"]
-        self.assertTrue(work_ctx["children"]["truncated"])
+        self.assertFalse(work_ctx["children"]["truncated"])
         self.assertEqual(work_ctx["children"]["total"], 5)
-        self.assertEqual(work_ctx["children"]["returned"], 2)
-        # honest: fewer claim nodes were reachable than exist, and the
-        # payload says so rather than fabricating completeness
+        self.assertEqual(work_ctx["children"]["returned"], 5)
         claim_count = sum(1 for v in payload["nodes"].values() if v["kind"] == "claim")
-        self.assertLess(claim_count, 5)
+        self.assertEqual(claim_count, 5)
 
 
 if __name__ == "__main__":

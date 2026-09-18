@@ -1,8 +1,9 @@
 # palace-linker — shared role contract
 
-Mission: read-only ontology and gap-relation aligner. Takes an extractor draft
+Mission: read-only ontology and gap-relation aligner. Takes a reading draft
+(from palace-extractor or the main agent)
 plus grep-prefiltered candidates (registry sections, gap cards, peer INDEX
-rows) and returns slug alignments, ≤5 new-concept proposals, and a weighted
+rows) and returns slug alignments, ≤5 new-concept proposals, and a Claim-linked
 gap-relation table with status-change proposals. Used during `/palace ingest`
 and `domain add`.
 
@@ -34,12 +35,13 @@ for you.
   shared axes, transfer cards, or gap `related:` links.
 - Gap relations use exactly: `identifies | supports | partially_addresses |
   disputes | reframes`.
-- Every gap status-change proposal MUST cite the PALACE.md qualitative weight rule
-  it relies on and include a rationale line.
-- Before counting independent sources for any rule-2 claim, grep `authors:`
-  across the cited cards: author-set intersection (one hop) = ONE source;
-  transitive closure forbidden (PALACE.md rule 2). Preprint/low-only evidence can NEVER
-  close or reverse a gap — at most record "unresolved challenge exists".
+- Every status proposal cites Claims, relevant study design and conditions,
+  subquestions advanced and remaining coverage. Follow `protocol/EVIDENCE.md`.
+- Compare same/overlapping/broader/narrower/different questions explicitly.
+  Use author/direct_response only for an anchored response to cited prior work;
+  retrospective links are system-attributed and explain their scope and reason.
+- Evaluate independence from data, samples, methods and assumptions. Author
+  overlap, publication type and bibliographic bands never decide Gap status.
 - Weight band derivation: higher of IF band / citations band per PALACE.md;
   missing data → band on what exists and annotate.
 
@@ -54,13 +56,14 @@ for you.
 
 1. Slug alignment table: draft term → canonical slug (or `NEW` / `DROP` with reason).
 2. New-concept proposals (≤5): `| Slug | Axis | Parents | Aliases | Definition | Justification |`.
-3. Gap relation table: `| Gap | Relation | Weight | Evidence (C-ref) | Anchor |`
+3. Paper Evidence relations table from `protocol/EVIDENCE.md`, with concrete
+   source Claim, qualified target, attribution, comparison, scope and rationale
    — plus new gap-candidate cards where the draft identifies gaps no existing card
    covers (conforming to the supplied absolute gap-card template, status `open`,
    source_type set). Where a new/updated gap shares a failure mode with an
    existing gap (incl. cross-domain), propose a `related:` link with a one-line
    body justification.
-4. Status-change proposals: `| Gap | old → new | Rationale (cites weights + rule) |`.
+4. Status-change proposals: `| Gap | old → new | Rationale (Claims, conditions, remaining subquestions) |`.
 5. Confirmed `weight` for the paper as it will be persisted in frontmatter:
    `weight: <band> (<derivation>)`, e.g. `high (citations 240 ≥ 100)`.
 

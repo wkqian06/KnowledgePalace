@@ -24,10 +24,20 @@ BETA_ARXIV = "2101.00001"
 class StubGraphProvider:
     """references/cited_by served from a synthetic citation graph."""
 
-    def __init__(self, graph, fail_references=()):
+    def __init__(self, graph, fail_references=(), resolve_map=None):
         self.graph = graph  # key → {"references": [record...], "cited_by": [...]}
         self.fail_references = set(fail_references)
         self.calls = []
+        if resolve_map is not None:
+            self.resolve_map = resolve_map
+            self.resolve = self._resolve
+
+    def _resolve(self, ref):
+        self.calls.append(("resolve", ref.get("openalex")))
+        record = self.resolve_map.get(ref.get("openalex"))
+        if record is None:
+            raise ProviderError("stub", "resolve", "unknown %r" % ref)
+        return record
 
     def _key(self, ids):
         return ids.get("doi") or ids.get("arxiv")
@@ -125,6 +135,26 @@ class TestTraversal(EngineCase):
         self.assertEqual(  # each work expanded exactly once — no requeue loop
             sorted(run.expanded), ["alpha-2020-echo", "beta-2021-foxtrot"]
         )
+
+
+    def test_provider_id_only_references_resolve_before_hit_matching(self):
+        # OpenAlex reference lists carry only openalex ids; vault cards carry
+        # DOIs/arXiv ids. Without resolution a library paper looks new.
+        graph = {ALPHA_DOI: {"references": [{"ids": {"openalex": "W-beta"}},
+                                            {"ids": {"openalex": "W-new"}},
+                                            {"ids": {"openalex": "W-gone"}}],
+                             "cited_by": []}}
+        provider = StubGraphProvider(graph, resolve_map={
+            "W-beta": rec(arxiv=BETA_ARXIV, title="Beta"),
+            "W-new": rec(doi="10.9/new", title="A titled candidate"),
+        })
+        run = self.make_run(depth=1)
+        execute(run, provider, self.identity)
+        self.assertEqual({hit["slug"] for hit in run.vault_hits}, {"beta-2021-foxtrot"})
+        # An unresolvable id stays a provider-id-only candidate, with a warning.
+        self.assertEqual(run.new_keys, ["doi:10.9/new", "openalex:w-gone"])
+        self.assertEqual(run.pool.get("doi:10.9/new")["title"], "A titled candidate")
+        self.assertTrue(any("W-gone" in warning for warning in run.warnings))
 
 
 class TestBudgetAndFrontier(EngineCase):

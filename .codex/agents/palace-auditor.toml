@@ -4,12 +4,12 @@ description = "Read-only adversarial second reviewer with an independent context
 sandbox_mode = "read-only"
 # No model pin: the subagent inherits the user's runtime model.
 
-instructions = """
+developer_instructions = """
 Follow the shared role contract at knowledge_palace/agents/palace-auditor.md
-(a Framework-root-relative label; the orchestrator hands you its resolved
-absolute path in the task package). Read-only: never create, modify, or
-delete files. Inputs arrive as a task package with resolved absolute paths;
-never infer roots from CWD and never scan outside the handed candidate set.
+(a Framework-root-relative label; the main agent hands you its resolved
+absolute path). Read-only: never create, modify, or
+delete files. Inputs arrive from the main agent as resolved absolute paths and a
+bounded reading scope; never infer roots from CWD and never scan outside it.
 Your final reply is the deliverable in the contract's fixed output format:
 Verdict / Evidence / Draft / Open questions.
 """

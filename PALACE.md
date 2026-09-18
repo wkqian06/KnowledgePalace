@@ -39,7 +39,7 @@ performance, accuracy, evaluation, benchmark, framework, architecture`
 palace-scout must not count any of these as a bridge concept; a candidate transfer
 whose only bridges are stopwords is `spurious_relation` (report and drop).
 
-## Weight bands (impact factor × citations; seed values, user-adjustable)
+## Bibliographic context bands (display and field attention)
 
 | Band | IF channel | Citations channel (age-tiered, at derivation time) |
 |---|---|---|
@@ -56,40 +56,43 @@ whose only bridges are stopwords is `spurious_relation` (report and drop).
 - IF source: JCR IF is not open data. Use Scopus CiteScore or OpenAlex 2-yr
   citedness as the substitute and note the source next to the value.
 - Citations are fetched at ingest time and stamped with `citations_date`
-  (always displayed with the count). No automatic refresh in V1, except the
-  provisional re-derivation below.
+  (always displayed with the count). Later refreshes are explicit.
 - Papers < 2 years old at derivation carry a provisional annotation —
   `weight: <band> (provisional — citations immature, ingested YYYY-MM)` —
-  and are re-fetched/re-derived at every `/palace govern` run; the marker is
+  and are reported for explicit `/palace refresh`; the marker is
   dropped once the paper turns 2 years old.
-- Peer-review floor: a peer-reviewed paper < 3 years old with immature
-  citations takes a MEDIUM floor (transition-eligible under rule 1).
-  Preprints still band by citations only.
+- A band reads field attention, never scientific standing. It says how often a
+  work has been cited and where it appeared, which tracks how active or
+  fashionable its area is; it says nothing about how much of a question that
+  work answered. Age and publication adjustments are context of the same kind.
+- No band, citation count, venue metric or publication type may decide a Gap
+  status change, make evidence "transition-eligible", freeze a work out of a
+  judgment, or alter a recorded relation. A relation records what the work did
+  with the question, so a preprint that substantively answers one is recorded
+  `partially_addresses` at whatever band it carries. Status follows the
+  substance of the answer and what it leaves open; see EVIDENCE.md.
 - Confirmation-gate uplift: at ingest confirmation the user may uplift a band
   on qualitative signals (author pedigree via the co-authorship network, code
   release, operational deployment); the reason MUST be persisted inside the
   `weight:` derivation annotation.
 
-### Qualitative weight rules (linker/analyst must cite these in verdicts)
+### Evidence judgment (extractor/linker/analyst/auditor)
 
-1. A gap status transition (open → partially-addressed, → closed, …) requires
-   ≥ 1 supporting relation of high or medium weight. Preprint/low-only evidence
-   can NEVER close or reverse a gap — it may only be recorded as "an unresolved
-   challenge exists".
-2. "Established" in a brief: ≥ 2 independent sources with consistent claims,
-   including ≥ 1 high-weight. Consistent low-weight evidence is at most
-   "emerging consensus". Independence is mechanical, via the co-authorship
-   network: two papers whose `authors:` sets intersect (≥ 1 shared name, ONE
-   hop) count as one source; transitive closure is FORBIDDEN (small-world
-   collapse would make this rule unsatisfiable). The co-authorship edge list
-   (`pair: ×count, first–last year`) is computed live from `authors:` +
-   `year:` fields, never stored. Qualitative reading: count = 1 edges from
-   large-consortium papers are incidental, not lab proximity; corroboration
-   from disconnected network components may be annotated as stronger.
-3. `brief ideas` ranking considers gap-relation weights and transfer-evidence
-   weights but never drowns minority evidence: high-weight conclusions and
-   low-weight counterexamples are shown side by side, each labeled with weight.
-4. No numeric weighting formula — on a corpus of this size it is false precision.
+1. Gap status changes cite concrete Claims, study design, evidence directness,
+   applicable conditions and the subquestions advanced or left open. Citation
+   counts, venue metrics, attention bands and publication type never decide a
+   scientific conclusion or prevent counterevidence from changing it.
+2. Evidence independence concerns shared data, samples, methods, assumptions and
+   analyses. Explain these dependencies; author overlap is background information,
+   never a substitute. Strong consensus language needs converging direct evidence
+   across relevant conditions and a reasoned assessment of those dependencies.
+3. Show counterevidence beside supporting evidence. Align populations, measurement
+   definitions, sampling and evaluation before calling results contradictory.
+   Research opportunities state importance, existing evidence, the inference step,
+   alternatives and a validation design that can distinguish them. Low Vault
+   coverage is not a field-wide research gap.
+4. Use reasoned judgments, without numeric evidence scores or rankings derived
+   from bibliographic context. Preserve dated citation/venue metadata for display.
 
 ## Reproducibility fields
 
@@ -105,16 +108,15 @@ code_usage: "<repo, stars/downloads, kind, YYYY-MM>" # dated snapshot, display-o
 - Values come from author statements with anchors (same evidence discipline as
   Claims); absent → `none-stated`, never guessed. `code_usage` is the one
   exception: it is orchestrator-fetched (GitHub/PyPI), always dated, and
-  refreshed with the citation refresh at `/palace govern`.
+  refreshed only by explicit `/palace refresh`.
 - Stars/forks are attention proxies, not usage; real usage (PyPI downloads,
   dependents) is labeled as such. Official vs third-party repos are
   distinguished; monorepo star counts carry a caveat.
 - Retroactive backfill: existing cards at the next full govern pass; classics
   default `none-stated` at zero cost.
-- Reproduction-event convention: an independent reproduction = a `supports`
-  relation whose evidence cell explicitly says "independent reproduction";
-  under mechanical rule 2 (author-disjoint) the analyst may upgrade "two
-  consistent teams" wording to "independently reproduced".
+- Reproduction-event convention: a `supports` relation names the repeated result,
+  data and method dependencies, and scope. Call it independently reproduced only
+  when the underlying study design supports that description.
 - Explicitly not adopted:
   reproducibility scores/grades (false precision), a new concept axis (paper
   attributes are not knowledge concepts), system-run reproduction experiments
@@ -140,7 +142,7 @@ code_usage: "<repo, stars/downloads, kind, YYYY-MM>" # dated snapshot, display-o
 | Parameter | Value |
 |---|---|
 | discover gate | ≥ 15 papers total AND ≥ 3 cross-domain papers (a cross-domain paper = its `domain:` array contains ≥ 1 registered slug outside the home domain's subtree; domains must be registered via `domain add` BEFORE such papers are ingested) |
-| concept promotion | candidate → canonical at ≥ 3 confirmed supporting papers that genuinely USE the concept, drawn from ≥ 2 independent author clusters (rule-2: author sets disjoint). Baseline-only comparison does not count (see Concept conventions); single-cluster support keeps the row candidate with a note. |
+| concept promotion | candidate → canonical at ≥ 3 confirmed supporting papers that genuinely USE the concept, with evidence from distinct data or analyses, assessed under evidence rule 2. Baseline-only comparison does not count (see Concept conventions); dependent support keeps the row candidate with a note. |
 | new concept proposals | ≤ 5 per paper (linker) |
 | linker prefilter budget | 5–15 candidate cards per paper; INDEX-first, never full-vault reads |
 | batch ingest size | 5–10 papers per batch, one merged confirmation |
@@ -165,10 +167,10 @@ code_usage: "<repo, stars/downloads, kind, YYYY-MM>" # dated snapshot, display-o
 
 ## Governance triggers (checked by `/palace govern`, computed live by grep)
 
-- A candidate concept reaches ≥ 3 genuine-use supporters from ≥ 2 independent
-  author clusters → promotion proposal (baseline-only tags excluded).
-- A provisional-weight paper exists (grep `provisional` in papers/) → re-fetch citations, re-derive its band; drop the marker at age 2 yr.
+- A candidate concept reaches ≥ 3 genuine-use supporters from distinct data or analyses → promotion proposal (baseline-only tags excluded).
+- A provisional-weight paper exists → propose explicit citation refresh; governance never fetches metadata.
 - A non-canonical raw term recurs in ≥ 3 cards' Summary/notes text without a registry row (grep the term) → alias or new-concept proposal.
 - `concepts.md` grows unwieldy from multi-domain growth → propose per-axis file split (schema unchanged).
 - Orphan tags (card tags absent from the registry) found → repair proposal.
 - Deprecated slug still referenced by any card → migration proposal (`grep -l` impact list attached).
+- A registered domain's cards split into task-tag groups that rarely co-occur on one card, or a domain-axis root concept exists without a `domains.md` row → domain-partition proposal (candidate domains, the cards whose root tag would change, computed by `graph.identity.domain_partition_report`). Criterion: papers written by one community that cite each other and share gap cards form a domain; a toolbox that several communities each use belongs on the shared method/pattern axes, never as a domain.

@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from knowledge_palace.graph.identity import load_vault_identity
+from knowledge_palace.graph.identity import domain_partition_report, load_vault_identity
 
 MINI = Path(__file__).resolve().parent / "fixtures" / "vault-mini"
 
@@ -68,6 +68,34 @@ class TestCleanFixture(unittest.TestCase):
         self.assertEqual(
             [e for e in identity["parse_errors"] if "C3" in e], []
         )
+
+    def test_retraction_detaches_a_wrong_source_quote(self):
+        vault = _tmp_vault(self)
+        card = vault / "papers" / "alpha-2020-echo.md"
+        card.write_text(
+            card.read_text(encoding="utf-8")
+            + '\n- Retraction of C2 (2026-09-18): this sentence is not in this\n'
+            + '  paper; it belongs to beta-2021-drift.\n',
+            encoding="utf-8",
+        )
+        identity = load_vault_identity(vault)
+        retracted = identity["claims"]["alpha-2020-echo#C2"]["retracted"]
+        self.assertEqual(retracted["date"], "2026-09-18")
+        self.assertIn("belongs to beta-2021-drift", retracted["note"])
+        self.assertIsNone(identity["claims"]["alpha-2020-echo#C1"]["retracted"])
+        self.assertEqual([e for e in identity["parse_errors"] if "C2" in e], [])
+
+    def test_retraction_without_a_claim_is_reported(self):
+        vault = _tmp_vault(self)
+        card = vault / "papers" / "alpha-2020-echo.md"
+        card.write_text(
+            card.read_text(encoding="utf-8")
+            + '\n- Retraction of C9 (2026-09-18): no such claim.\n',
+            encoding="utf-8",
+        )
+        identity = load_vault_identity(vault)
+        self.assertTrue(
+            any("retraction of C9 has no such claim" in e for e in identity["parse_errors"]))
 
     def test_multi_parent_registry_row(self):
         self.assertEqual(
@@ -154,6 +182,25 @@ class TestFindingsSurfaceNeverMerge(unittest.TestCase):
         self.assertTrue(
             any("bad gap entry" in error for error in identity["parse_errors"])
         )
+
+
+
+class TestDomainPartitionReport(unittest.TestCase):
+    def test_counts_roots_and_flags_unregistered_ones(self):
+        identity = load_vault_identity(MINI)
+        report = domain_partition_report(identity)
+        self.assertEqual(report["cards_without_root"], [])
+        self.assertEqual(report["roots"]["alpha-domain"]["cards"], 2)
+        self.assertTrue(report["roots"]["alpha-domain"]["registered"])
+        self.assertEqual(report["roots"]["alpha-domain"]["tasks"][0][0], "concept-echo")
+        self.assertEqual(report["root_pairs"], {("alpha-domain", "beta-domain"): 1})  # gamma-2022-bridge
+        hub = [h for h in report["shared_hubs"] if h["concept"] == "concept-shared-pattern"]
+        self.assertEqual(hub[0]["domains"], {"alpha-domain": 1, "beta-domain": 1})
+        self.assertEqual(domain_partition_report(identity, stopwords=("concept-shared-pattern",))["shared_hubs"], [])
+        identity["works"]["alpha-2020-echo"]["axes"]["domain"].append("beta-domain")
+        self.assertEqual(domain_partition_report(identity)["root_pairs"], {("alpha-domain", "beta-domain"): 2})
+        identity["domains"].pop("beta-domain")
+        self.assertEqual(domain_partition_report(identity)["unregistered_roots"], ["beta-domain"])
 
 
 if __name__ == "__main__":

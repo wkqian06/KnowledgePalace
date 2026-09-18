@@ -1,187 +1,121 @@
-# KnowledgePalace Protocol — platform-neutral core
+# KnowledgePalace shared protocol
 
-This file is the single authority for Palace behavior shared by every runtime.
-Runtime entries (`.claude/skills/knowledge-palace/SKILL.md`,
-`.agents/skills/knowledge-palace/SKILL.md`) are thin adapters: they route
-commands here and must not duplicate the bodies below. Command surface and
-per-command flows live in `COMMANDS.md`; the internal query contract lives in
-`GRAPH_QUERY_PORT.md`; role contracts live in `../agents/`; card templates in
-`../templates/`; deterministic tools in `../tools/`.
+## Task routing
 
-The configured Personal Vault is the single source of confirmed knowledge:
-markdown, human-readable, and grep-computable. The Framework's `PALACE.md` is
-public static policy; the Vault's `domains.md` and `concepts.md` are private
-registries. The mirrored main-agent contract (`AGENTS.md` == `CLAUDE.md`)
-applies to every flow.
+COMMANDS.md is the single command index. Workflows under ../workflows/ define
+collection, ingest, discussion, manuscript analysis, writing/polishing and
+feasibility. Read only the requested workflow and its necessary shared steps.
+Roles are optional specialists; the main agent may execute the same workflow.
 
 ## Storage resolution
 
-Load exactly `<Framework root>/.palace.toml`. Resolve its `vault_dir`,
-`state_dir`, `source_dir`, and `workspace_dir` values against the config file's
-directory, never against the shell CWD (deterministic implementation:
-`tools/config_resolver.py`). Treat card and INDEX paths as Vault-relative;
-treat paper-card `local` values as `source_dir`-relative. Pass resolved
-absolute data, policy, and template paths to subagents, which never discover
-roots themselves. The four roots must exist, be distinct, and lie outside the
-Framework worktree. Private-root Git topology is exclusively user-managed:
-Palace neither inspects nor blocks repositories the user creates in or above a
-private root. Every bare Framework path in this protocol is a logical label
-resolved against the Framework root, never against CWD.
+When accessing the library/project, resolve .palace.toml against its own directory:
+vault_dir, state_dir, source_dir and workspace_dir are distinct roots outside the
+Framework. Direct-material tasks do not need these roots or a new project.
 
-Only the Framework is a Palace-managed Git boundary. Never run any Git command
-with a private root as CWD or target, regardless of whether the user placed a
-`.git` marker there (advisory check: `tools/git_guard.py`). Confirmed private
-writes do not create commits. Framework work forms at most one local commit
-per completed Goal and is never pushed automatically.
+- Vault: papers, concepts, gaps, transfers, current syntheses and style records.
+- Source Cache: full texts and their source versions; cards carry relative locators.
+- Workspace: user materials, project context, manuscript analysis and saved sections.
+- Derived State: reconstructible indexes, discovery/session records and task drafts.
+  Preserve synthesis-updates.json when rebuilding: it also holds review decisions.
 
-## Roles and dispatch
+Private Git topology is user-managed. No Git command targets a private root. All
+Git writes, including Framework writes, are performed by the user only.
 
-The main agent is the orchestrator: it resolves roots, runs INDEX-first grep
-prefilters, dispatches read-only subagents, aggregates drafts, presents one
-packaged confirmation, and performs every approved write. Subagents never
-write files and never scan outside the handed candidate set.
+## Reading and evidence
 
-Nine platform-neutral role contracts live in `knowledge_palace/agents/`:
+A selected/adopted outside paper is ingested; completed reading updates its card.
+Use ../workflows/ingest.md and the paper-card template. Reuse existing Work identity
+and Claim numbers. Record actual read_depth (full, skim, abstract, metadata) and
+source_coverage (full-text, excerpt, abstract, metadata). Older cards may omit
+source_coverage; absence means not recorded, never inferred full coverage.
 
-| Role | Mission |
-|---|---|
-| palace-extractor | full text + metadata → anchored paper-card draft |
-| palace-linker | draft + prefiltered candidates → concepts and gap relations |
-| palace-scout | target + shared axes → evidence-backed transfer candidates |
-| palace-auditor | adversarial evidence, schema, and provenance review |
-| palace-analyst | briefs, ask answers, idea critiques, and intro drafts |
-| palace-stylist | style feature cards and crystallized profiles |
-| palace-expansion-reviewer | scope-specific candidate selection for bounded expansion |
-| palace-writer | genre-shaped draft/revise/assemble from frozen evidence packages |
-| palace-reviewer | scholarly quality and genre-requirement review of drafts |
+Metadata-only cards contain no scientific Claims. Abstract-only Claims quote the
+abstract and retain that source boundary. Possessing full text is not full reading.
+Every new Claim has an exact quote, a real source locator and canonical concepts.
+Claim IDs are immutable and the author's wording is authoritative. Three errors,
+three different actions. A scientific error — the quote is this work's and
+accurate, but its reading, scope or boundary was wrong — appends a Correction
+and, where needed, a new Claim; the quote itself stays. A transcription error —
+the recorded wording does not match the source, through a dropped citation,
+clause, qualifier or index — is repaired in place toward the source, with no
+Correction: a quote that never matched the paper was never the evidence, and
+restoring it is what immutability protects. A provenance error — the quote is
+not in this work at all — is retracted in place with
+`- Retraction of C<n> (<date>): <note>`, never edited or deleted.
 
-Dispatch is a task package built by `tools/task_package.py`: role, shared
-contract path, protocol references, handed inputs (absolute paths + hashes),
-read-only constraints, and the expected draft kind. Both runtimes build
-packages through this one tool so the package schema cannot drift. In runtimes
-without native subagent support, execute each contract in a separate read-only
-context and return its draft to the orchestrator.
+Every repair is checked against the cached source first. That check also decides
+the smaller case: a quote found elsewhere in this work corrects only its anchor.
+Repairs move toward the source and never away, so save_paper accepts a changed
+quote only when the new wording is verbatim in that work's cached text and
+refuses it when no cached text exists. A retracted Claim leaves the work's claims
+edge, binds no concept and cannot be cited by Argument, Conditions or Evidence
+relations rows. No missing method, result or limitation is filled from an unseen
+section.
 
-External capabilities are called but never modified: academic-search providers
-for metadata and citations, plus downloader/reader providers for full text. If
-they are unavailable, query OpenAlex metadata and ask the user for a local
-full-text path.
+Read EVIDENCE.md for Argument, Conditions, evidence relations and synthesis tables.
+These are optional structured views; omission means uncurated. Interpretations,
+hypotheses and user observations are distinct from original literature assertions.
+Current synthesis records can change without rewriting historical author statements.
 
-## Write invariants
+Scientific confidence follows design, direct evidence, conditions and dependence
+between datasets/analyses. Citation counts, venue and publication type are context.
+No automated score or successful schema validation establishes a scientific claim.
 
-1. Subagents never write files; the main agent performs every approved write.
-2. No Claim enters a card without a verbatim evidence anchor
-   (`— §<section> [¶<para>] / p.<page>`). Every NEW Claim
-   additionally binds at least one concrete Concept via the optional bracket
-   group (`- C<n> [slug, …]:` — validated by `semantic/binding.py` before
-   the packaged confirmation); historical claims stay valid unchanged until
-   their dedicated migration packets.
-3. Every gap status change appends a rationale citing relation weights.
-4. Authoritative Vault, Source, Workspace, or Framework writes happen only
-   after explicit user confirmation. Private writes never imply a Palace Git
-   action.
-5. Evidence is immutable: quotes are never edited in place; corrections append
-   clearly marked entries and preserve the original.
-6. Full paper texts live only in Source Cache. Vault cards store locators and
-   `source_dir`-relative pointers.
-7. Workspace revisions are append-only siblings of evidence immutability:
-   every confirmed save creates the next `sections/<section>/rNNN.md`, prior
-   revisions are never rewritten, and a no-save interaction leaves the
-   Workspace byte-identical. Palace never runs Git against the Workspace;
-   auto drafts and interim reviews live only in Derived State. Project
-   Materials feed writing but can never become Vault Claim evidence.
+## Authorized writes
 
-## Schema (field-complete templates in `knowledge_palace/templates/`)
+The main agent performs writes; delegated readers return drafts and NEVER write,
+edit, or create files. Explicit ingest or selection within an authorized collection
+includes card/source preservation. Carry prior authorization forward. Ask only for
+unresolved identity, changed scope or genuinely missing user intent.
 
-- **concepts.md** — 7 axis sections, table `| Slug | Parents | Status | Aliases |
-  Definition | Notes |`; comma-separated Parents = multi-parent DAG; controlled
-  vocabulary (cards use canonical slugs only); deprecated rows name successors,
-  never deleted.
-- **Card filenames** — a card is `<slug>.md` inside its store directory
-  (`papers/`, `gaps/`, `transfers/`, `styles/bank/`, `styles/profiles/`; gap and
-  transfer slugs already carry their `gap-`/`transfer-` prefixes); briefs are
-  `briefs/<YYYY-MM-DD>-<view>.md`; confirmed compact expansion-run records
-  are `expansions/<run-id>.md` (template `expansion-run.md`).
-- **paper card** (`templates/paper-card.md`) — slug `<firstauthor>-<year>-<titleword>`
-  (grep INDEX for duplicates before assigning); frontmatter incl. `journal_if`,
-  `citations`, `citations_date`, `weight` with its derivation persisted inline
-  (e.g. `weight: high (citations 240 ≥ 100)`), `source` locator and `local`
-  source_dir-relative pointer (full text never stored in the Vault),
-  `read_depth` (full|skim) — the ingest confirmation validates that an
-  external `source:` id is spec-shaped (DOI `10.<4–9 digits>/…` or an arXiv
-  id) before it is persisted; malformed provider ids surface at the
-  confirmation and are never written — 7 concept arrays — the `domain:`
-  array always includes the domain-root slug so domain-filtered views stay
-  grep-native — `gaps:` relations, optional `style_card`, and four optional
-  reproducibility fields `code:`/`data:`/`compute:`/`code_usage:` (author-stated
-  with anchors, `none-stated` when absent; `code_usage` is a
-  dated display-only snapshot, never weight input). Body:
-  Summary (may be Chinese) / Claims (verbatim quote + anchor `— §sec [¶para] /
-  p.page`) / Limitations & gaps / Transfer notes (only if cross-domain or a
-  transferable function).
-  Paper→gap relations (5): `identifies | supports | partially_addresses |
-  disputes | reframes`.
-- **gap card** (`templates/gap-card.md`) — `type (theory|method|data|evaluation|
-  generalization|physical|transfer)`, `status (open|partially-addressed|disputed|
-  reframed|closed)`, `source_type (explicit_author|implicit_system)`, `concepts[]`
-  (prefilter hooks), `related[]` (optional cross-gap analogy links, usually shared
-  failure modes; justify in body). Body: one-sentence statement / Relations table
-  (Paper | Relation | Weight | Claim/evidence | Anchor) / Status rationale
-  (append-only) / Open subquestions.
-- **transfer card** (`templates/transfer-card.md`) — `relation` enum (7):
-  `similar_problem_pattern | transferable_method_function | shared_failure_mode |
-  shared_validation_logic | prerequisite_or_enabler | analogy_only |
-  spurious_relation` (the last two are report-and-drop, never stored);
-  `a` (home-domain slug), `c` (foreign-domain slug), `bridges[]` (non-stopword),
-  `status (candidate|monitor|pursuing|dropped)`, `gaps[]`, `papers[]`. Body:
-  one-sentence hypothesis / Bridge evidence / Assumptions & risks / First
-  validation step (one concrete experiment).
-- **style bank card** (`templates/style-bank-entry.md`) — `slug/title/source
-  (pointer)/venue/added/liked_aspects[]/user_note/profiles[]` + 7 dimension
-  sections (argument-development, sentence-rhythm, assertion-hedging, lexicon,
-  punctuation, structure-organization, results-presentation) + representative
-  quotes.
-- **style profile** (`templates/style-profile.md`) — `name (journal-<venue>|
-  lang-<trait>)/type (journal|language)/alias/description/sources[]/updated` +
-  rules table grouped D2 / D3 / Fix tone (`# | Rule | Support n/N | Maturity |
-  Exemplar | Counter-example`) + Conflict log.
-- **INDEX files** (`templates/papers-INDEX.md`, `templates/gaps-INDEX.md`) — flat
-  tables for dedup and prefilter; papers INDEX carries IF / Cites / W columns.
+save_paper is the common paper-card write boundary: identity reuse, old Claims,
+new references and INDEX update. Rebuild derived context once after the batch and
+related Gap edits. Source promotion retains immutable originals. Saved project
+sections use append-only revisions; polish never overwrites its source by default.
 
-## Multi-domain rules
+User manuscripts, experiment data and analysis notes are project materials. They
+can support the user's writing and research decisions but never become published
+paper Claims. Important discussion is saved when requested. Short direct tasks
+may remain in conversation without project creation.
 
-- Stable skeleton = shared axes (pattern, function, failure-mode, generic
-  metrics); variable layer = per-domain domain/task subtrees.
-- Three connection forms between top-level domains, kept separate:
-  1. **Structural** — shared abstract concepts (both domains' tasks hang under the
-     same pattern/function row; grep-native).
-  2. **Transfer** — transfer cards (evidence-backed, typed, directed edges with a
-     validation plan; a↔c crossing domains is the inter-domain edge).
-  3. **Analogy** — gap cards' optional `related:` field (cross-domain gaps sharing
-     a failure mode), justified in the body.
-- FORBIDDEN: inter-domain `Parents` edges. Between top-level domains there are
-  only bridges, never hierarchy.
-- `brief bridges` is a pure computed view: shared-concept intersection (grep both
-  domains' cards' tags), transfer edges between the pair, cross-domain gap links;
-  no arguments → full connection matrix (which domains are bridge-rich, which are
-  isolated).
+## Discussion and writing
 
-## Weight rules
+Ask may explain background and discuss hypotheses beyond the current card set,
+while separating them from retrieved evidence. Coverage records apply to the
+literature-backed portion only. New adopted literature goes through ingest before
+final library citation; unresolved acquisition is reported as an incomplete step.
+Temporary external records remain discovery state, not another permanent library.
 
-Bands and qualitative rules live in `PALACE.md` and bind linker and analyst;
-every weight-dependent verdict must cite the rule it applied. Key hard rules:
-band = higher of IF/citations band; preprint/low-only can never close or
-reverse a gap; "established" needs ≥2 independent teams incl. ≥1 high;
-minority evidence is displayed, never drowned; no numeric weighting formula.
+Write and polish share manuscript-analysis.md. Use source document/version,
+argument, section roles, intent, terms and unresolved evidence to guide the draft.
+Reuse an applicable analysis; update it after relevant changes. Project analysis
+lives at outline/manuscript-analysis.md. Direct work uses supplied context.
 
-## Governance invariants
+Use normal citations in prose, backed by selected evidence; internal provenance
+labels need not appear in every user-facing sentence. No user results means no
+invented Results text. Focused revision follows actual findings, with at most two
+automatic revisions for a section; no Python state machine is required.
 
-- Store decisions, compute counts (support, hub degree, triggers — grep live).
-- INDEX-first prefilter; linker reads 5–15 candidate cards, never the full vault.
-- Slugs: ASCII kebab-case English. Bodies English; Summary/notes may be Chinese.
-- Subagents never write; no anchorless claims; gap status changes carry rationale;
-  writes only after user confirmation; private writes never trigger Palace Git.
-- Evidence immutable: corrections append, never overwrite.
-- Palace Viewer export is read-only over the frozen GraphQueryPort and
-  produces no authoritative write anywhere except the one user-confirmed
-  output file, itself outside all four private roots.
+## Concepts, relations and review
+
+Keep the seven existing concept axes and canonical slugs. Domain-specific meaning
+lives in records, not Python enums. Inter-domain connections are shared concepts,
+justified Gap analogies or directed transfers, not cross-domain Parents links.
+
+Status reads current facts. Audit reviews source fidelity and inference. Govern
+proposes meaningful maintenance; it neither fetches nor writes automatically.
+Refresh updates bibliographic metadata; collection/acquisition and authorized
+external research may also use network tools within their task scope.
+
+## Mechanical guarantees
+
+Use checks where failure changes storage or execution: correct paths and identity,
+resolvable references, original evidence preservation, complete query/pagination,
+recoverable project state. Keep them at the actual boundary, not repeated between
+internal helpers. Review scientific content through source comparison and reasoning.
+
+GraphQueryPort remains the read-only five-operation contract in GRAPH_QUERY_PORT.md.
+Index preparation may rebuild Derived State. Viewer exports one requested HTML;
+wiki export updates marked generated hubs and preserves unmarked user content.
+Existing logical-reference, paging and source-text boundaries continue to apply.

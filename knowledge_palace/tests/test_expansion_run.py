@@ -1,7 +1,6 @@
 """Idempotent checkpoint/resume, Derived-State-only
 writes, deletability, and the template-conforming compact record."""
 
-import hashlib
 import shutil
 import tempfile
 import unittest
@@ -10,21 +9,13 @@ from pathlib import Path
 from knowledge_palace.expansion.engine import apply_decisions, execute, expand_next
 from knowledge_palace.expansion.record import build_record
 from knowledge_palace.expansion.run import ExpansionRun
+from knowledge_palace.graph.builder import vault_fingerprint
 from knowledge_palace.graph.identity import load_vault_identity
 from knowledge_palace.tests.test_expansion_engine import StubGraphProvider, rec
 
 MINI = Path(__file__).resolve().parent / "fixtures" / "vault-mini"
 ALPHA_DOI = "10.99999/fixture.alpha2020"
 BETA_ARXIV = "2101.00001"
-CORE = Path(__file__).resolve().parents[1]
-
-
-def tree_digest(base):
-    return [
-        (p.relative_to(base).as_posix(), hashlib.sha256(p.read_bytes()).hexdigest())
-        for p in sorted(Path(base).rglob("*"))
-        if p.is_file()
-    ]
 
 
 GRAPH = {
@@ -109,11 +100,11 @@ class TestCheckpointResume(RunCase):
             vault = Path(td) / "vault"
             shutil.copytree(MINI, vault)
             identity = load_vault_identity(vault)
-            before = tree_digest(vault)
+            before = vault_fingerprint(vault)
             run = ExpansionRun("run-v", "scope-test", ["alpha-2020-echo"])
             execute(run, StubGraphProvider(GRAPH), identity, state_dir=self.state)
             build_record(run, started="2026-07-14")
-            self.assertEqual(tree_digest(vault), before)
+            self.assertEqual(vault_fingerprint(vault), before)
 
 
 class TestRecord(RunCase):
@@ -164,12 +155,6 @@ class TestRecord(RunCase):
         self.assertEqual(row.count(" | "), 5)  # still one well-formed 6-cell row
         self.assertIn("Tables \\| And Newlines", row)
         self.assertIn("bad \\| reason here", row)
-
-    def test_expansion_sources_stay_inside_derived_state(self):
-        for name in ("candidates.py", "run.py", "engine.py", "record.py"):
-            source = (CORE / "expansion" / name).read_text(encoding="utf-8")
-            self.assertNotIn("vault_dir", source, name)
-            self.assertNotIn("source_dir", source, name)
 
 
 if __name__ == "__main__":

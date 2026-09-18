@@ -21,10 +21,11 @@ test/
 /domains.md
 /fulltext/
 /chathistory.txt
+palace-viewer.html
 
 # Local documents remain private.
 docs/
-
+chathistory.txt
 
 # Full texts are Source Cache objects, never Framework or Vault content.
 *.pdf
@@ -34,6 +35,6 @@ docs/
 
 # Python bytecode caches from the stdlib test/tool runs.
 __pycache__/
-
+.pytest_cache/
 Plan_process.md
 Plan.md

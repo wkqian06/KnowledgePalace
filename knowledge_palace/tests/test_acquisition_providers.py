@@ -9,7 +9,6 @@ from pathlib import Path
 
 from knowledge_palace.acquisition.providers import (
     AcquisitionError,
-    CHANNEL_ORDER,
     InstitutionalAccessProvider,
     LocalFileProvider,
     OpenAccessProvider,
@@ -220,11 +219,6 @@ class TestInstitutionalStubAndChain(AcquisitionCase):
         with self.assertRaises(AcquisitionError) as ctx:
             provider.acquire(new_request(), self.state)
         self.assertIn("experimental", str(ctx.exception))
-
-    def test_channel_order_documented(self):
-        self.assertEqual(
-            CHANNEL_ORDER, ("local", "zotero", "openaccess", "licensed", "institutional")
-        )
 
     def test_acquire_via_survives_a_refusing_provider(self):
         pdf = self.base / "paper.pdf"

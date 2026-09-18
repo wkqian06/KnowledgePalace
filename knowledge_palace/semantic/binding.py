@@ -1,12 +1,8 @@
 """The new-ingest binding rule: every NEW Claim binds ≥1 concrete Concept.
 
-Applies to paper-card DRAFTS at ingest-validation time (the orchestrator
-runs it before the packaged confirmation). Historical cards are exempt by
-design — their backfill arrives via separate migration packets. This module
-never writes anything.
+``acquisition.transaction.save_paper`` applies it to the Claims a save adds;
+historical Claims stay valid unchanged. This module never writes anything.
 """
-
-from ..graph.identity import parse_claims
 
 
 def validate_claims(claims, registry):
@@ -30,14 +26,3 @@ def validate_claims(claims, registry):
     report["ok"] = not report["unbound"] and not report["unknown"]
     return report
 
-
-def validate_draft(body, registry, origin="draft"):
-    """Parse a draft body's claims and apply the binding rule in one step."""
-    claims, parse_problems = parse_claims(body, origin)
-    report = validate_claims(claims, registry)
-    report["parse_problems"] = parse_problems
-    report["claims"] = len(claims)
-    report["ok"] = report["ok"] and not parse_problems and bool(claims)
-    if not claims:
-        report["unbound"].append((0, "draft contains no claims"))
-    return report

@@ -21,6 +21,11 @@ study HOW ingested papers are written — never what they claim — and grow the
 internal style library: `styles/bank/` feature cards → dual-axis profiles in
 `styles/profiles/`.
 
+A project may instead select existing external journal/language profiles by
+absolute path. Read those profiles in place, preserve their source and user
+preferences, and pass their rules to writing/review. Do not copy them into a
+second authority or declare a new profile from an empty selection.
+
 # Hard limits
 
 - You NEVER write, edit, or create files. Your entire output is your reply text.

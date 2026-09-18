@@ -1,14 +1,9 @@
 """Walk the frozen GraphQueryPort into one canonical JSON payload.
 
 Every read goes through the port's five operations — never a raw Vault
-scan, never Source Cache. A stale index at any call aborts the whole
-walk (no partial payload). ``query_level`` pagination is followed to
-completion via cursors; ``query_context``'s ``children``/``edges`` are
-single-page by the frozen port contract itself (the port hardcodes
-``cursor=None`` there — only level queries and ``siblings`` accept a
-cursor), so the walk takes one best-effort page per node at the max
-limit and preserves ``truncated``/``total`` honestly rather than
-pretending completeness the contract does not offer.
+scan, never Source Cache. Level, child and edge pagination is followed to
+completion via the port's separate cursors. Sibling pages remain bounded;
+hierarchy levels and child/edge walks supply graph reachability.
 
 Some node kinds (e.g. ``transfer``, ``brief``) have no parent and are
 nobody's child — the hierarchy levels and children/siblings links never
@@ -18,21 +13,24 @@ edge it sees, not just parent/sibling/child views.
 """
 
 import json
+import re
+from pathlib import Path
 
+from ..graph.builder import canonical_bytes
 from ..graph.port import GraphQueryPort
+from ..metadata.cache import CACHE_DIRNAME
+from ..metadata.providers import _clean_doi
 
 WALK_PAGE_LIMIT = 500  # port caps at 500; minimizes pagination round-trips
 
-
-class StaleIndexError(Exception):
-    pass
+_SOURCE_LINE = re.compile(r"^source:(.*)$", re.MULTILINE)
+_DOI = re.compile(r"\b(10\.\d{4,9}/[^\s\"']+)")
+_ARXIV = re.compile(r"arxiv(?:\.org)?[.:/]+(?:abs/|pdf/)?(\d{4}\.\d{4,5})", re.IGNORECASE)
 
 
 def _unwrap(response):
     error = response.get("error")
     if error:
-        if error["code"] == "stale_index":
-            raise StaleIndexError(error["message"])
         raise RuntimeError("%s: %s" % (error["code"], error["message"]))
     return response
 
@@ -49,11 +47,7 @@ def _walk_pages(call):
 
 
 def build_bundle(vault, state, page_limit=WALK_PAGE_LIMIT):
-    """Full read-only walk → canonical JSON payload (dict, not bytes).
-
-    Raises StaleIndexError if the index goes stale mid-walk (never
-    returns a partial payload).
-    """
+    """Full read-only walk → canonical JSON payload (dict, not bytes)."""
     port = GraphQueryPort(vault, state, page_limit=page_limit)
 
     hierarchies_response = _unwrap(port.list_hierarchies())
@@ -97,12 +91,8 @@ def build_bundle(vault, state, page_limit=WALK_PAGE_LIMIT):
             {"id": hid, "label": hierarchy["label"], "levels": level_entries}
         )
 
-    # Worklist walk (order doesn't matter — canonical_bytes sort_keys makes
-    # the output order-independent) via query_context/get_content: one
-    # best-effort page per node at the max limit (see module docstring on
-    # the children/edges pagination ceiling); newly-discovered parents/
-    # siblings/children/edge-endpoints re-enter the worklist so
-    # non-hierarchy kinds (claim/transfer/…) are reached transitively.
+    # Parents, children and edge endpoints extend the worklist, reaching
+    # non-hierarchy kinds such as Claims and dependency-linked Briefs.
     seen = set()
     while worklist:
         node_id = worklist.pop()
@@ -110,6 +100,16 @@ def build_bundle(vault, state, page_limit=WALK_PAGE_LIMIT):
             continue
         seen.add(node_id)
         ctx = _unwrap(port.query_context(node_id, limit=page_limit))
+        for field, argument in (("children", "children_cursor"), ("edges", "edges_cursor")):
+            page = ctx[field]
+            items = list(page["items"])
+            while page["truncated"]:
+                response = _unwrap(port.query_context(node_id, limit=page_limit,
+                                                      **{argument: page["next_cursor"]}))
+                page = response[field]
+                items.extend(page["items"])
+            ctx[field] = {"total": page["total"], "returned": len(items),
+                          "items": items, "truncated": False, "next_cursor": None}
         contexts[node_id] = ctx
         nodes.setdefault(node_id, ctx["node"])  # covers edge-only-reached nodes
         for view in ctx["parents"]:
@@ -142,7 +142,74 @@ def build_bundle(vault, state, page_limit=WALK_PAGE_LIMIT):
     }
 
 
-def canonical_bytes(payload):
-    return json.dumps(
-        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
-    ).encode("utf-8")
+def _work_doi(payload, node_id):
+    """Normalized DOI from the card's frontmatter ``source:`` line, or None."""
+    content = (payload["contents"].get(node_id) or {}).get("content") or ""
+    front = content.split("\n---", 1)[0]  # frontmatter only — body quotes may cite other DOIs
+    match = _SOURCE_LINE.search(front)
+    if not match:
+        return None
+    line = match.group(1)
+    doi = _DOI.search(line)
+    if doi:
+        return _clean_doi(doi.group(1)).rstrip(".")
+    arxiv = _ARXIV.search(line)
+    if arxiv:
+        return "10.48550/arxiv." + arxiv.group(1)
+    return None
+
+
+def citation_overlay(payload, state):
+    """Work-to-work citation edges from the Bibliographic Cache (read-only).
+
+    Joins cached OpenAlex ``referenced_works`` lists against the bundle's
+    work DOIs. Purely Derived State — no network, no Vault scan; a missing
+    or empty cache yields an empty overlay. Coverage is whatever the cache
+    holds (``/palace refresh`` / expansion runs populate it).
+    """
+    cache_dir = Path(state) / CACHE_DIRNAME / "openalex"
+    if not cache_dir.is_dir():
+        return {"edges": []}
+
+    work_by_doi = {}
+    doi_collisions = set()
+    for node_id, view in payload["nodes"].items():
+        if view["kind"] != "work":
+            continue
+        doi = _work_doi(payload, node_id)
+        if doi in doi_collisions or doi is None:
+            continue
+        if doi in work_by_doi:  # duplicate DOI: attribute edges to neither card
+            work_by_doi.pop(doi)
+            doi_collisions.add(doi)
+            continue
+        work_by_doi[doi] = node_id
+
+    def norm_cache_doi(raw):
+        cleaned = _clean_doi(raw)
+        return cleaned.rstrip(".") if cleaned else None
+
+    work_by_oa_id = {}
+    refs_by_work = {}
+    entries = []
+    for path in sorted(cache_dir.glob("*.json")):
+        try:
+            record = json.loads(path.read_text(encoding="utf-8")).get("payload") or {}
+        except ValueError as err:
+            raise ValueError("corrupt bibliographic cache entry %s: %s" % (path, err))
+        entries.append(record)
+        node_id = work_by_doi.get(norm_cache_doi(record.get("doi")))
+        if node_id and record.get("id"):
+            work_by_oa_id[record["id"]] = node_id
+    for record in entries:
+        node_id = work_by_doi.get(norm_cache_doi(record.get("doi")))
+        if node_id and record.get("referenced_works"):
+            refs_by_work[node_id] = record["referenced_works"]
+
+    edges = set()
+    for source_id, referenced in refs_by_work.items():
+        for oa_id in referenced:
+            target_id = work_by_oa_id.get(oa_id)
+            if target_id and target_id != source_id:
+                edges.add((source_id, target_id))
+    return {"edges": [list(pair) for pair in sorted(edges)]}

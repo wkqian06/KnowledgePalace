@@ -14,7 +14,8 @@ import tempfile
 from pathlib import Path
 
 from ..tools.config_resolver import ConfigError, resolve_roots
-from .export import StaleIndexError, build_bundle, canonical_bytes
+from ..graph.builder import ensure_index
+from .export import build_bundle, canonical_bytes, citation_overlay
 from .html_template import render
 
 DEFAULT_FILENAME = "palace-viewer.html"
@@ -43,7 +44,9 @@ def export(output=None, config_path=None):
     """Build the bundle and write it atomically. Returns the output Path."""
     roots = resolve_roots(config_path)
     target = resolve_output_path(output, roots)
+    ensure_index(roots["vault_dir"], roots["state_dir"], roots["workspace_dir"])
     payload = build_bundle(roots["vault_dir"], roots["state_dir"])
+    payload["citations"] = citation_overlay(payload, roots["state_dir"])
     html = render(canonical_bytes(payload))
 
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -67,9 +70,6 @@ def run(argv):
     args = parser.parse_args(argv)
     try:
         target = export(args.output, args.config)
-    except StaleIndexError as err:
-        print("viewer export: stale index — %s" % err)
-        return 1
     except (ConfigError, ValueError, FileNotFoundError) as err:
         print("viewer export: %s" % err)
         return 1

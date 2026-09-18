@@ -1,8 +1,0 @@
-{
-  "schema_version": "1.0",
-  "snapshot": {"snapshot_id": "snap-000", "vault_fingerprint": "fp-vault-000", "built_at": "2026-07-01T00:00:00Z"},
-  "hierarchy_id": "domain-concept-work",
-  "level": 0,
-  "page": {"total": 1, "returned": 1, "truncated": false, "next_cursor": null,
-           "items": [{"id": "domain-alpha", "kind": "domain", "label": "Alpha Domain"}]}
-}

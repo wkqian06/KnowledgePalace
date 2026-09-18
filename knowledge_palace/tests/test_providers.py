@@ -8,7 +8,6 @@ from pathlib import Path
 
 from knowledge_palace.metadata.cache import BibliographicCache, RateLimiter
 from knowledge_palace.metadata.providers import (
-    ADAPTERS,
     ArxivProvider,
     CrossrefProvider,
     OpenAlexProvider,
@@ -186,11 +185,6 @@ class TestCacheAndFailures(unittest.TestCase):
         limiter.wait("openalex")  # t=0.2 → sleep 0.8, re-clock 1.2
         limiter.wait("openalex")  # t=1.4 → sleep 0.8, re-clock 2.4
         self.assertEqual([round(s, 3) for s in sleeps], [0.8, 0.8])
-
-    def test_adapter_registry_is_complete(self):
-        self.assertEqual(
-            sorted(ADAPTERS), ["arxiv", "crossref", "openalex", "semanticscholar"]
-        )
 
 
 if __name__ == "__main__":

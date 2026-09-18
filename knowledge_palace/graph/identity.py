@@ -13,12 +13,15 @@ import re
 from collections import Counter
 from pathlib import Path
 
+from ..semantic.evidence_helpers import read_tables
+
 AXES = ("domain", "task", "pattern", "function", "method", "metric", "failure-mode")
 GAP_RELATIONS = ("identifies", "supports", "partially_addresses", "disputes", "reframes")
 
 _DOI = re.compile(r"\b(10\.\d{4,9}/[^\s\"']+)")
-_ARXIV = re.compile(r"(?:arxiv[.:/]+(?:abs/)?)(\d{4}\.\d{4,5})", re.IGNORECASE)
+_ARXIV = re.compile(r"arxiv(?:\.org)?[/:.]+(?:abs/|pdf/)?(\d{4}\.\d{4,5})", re.IGNORECASE)
 _CLAIM = re.compile(r"^- C(\d+)(?: \[([^\]]*)\])?: (.*)$")
+_RETRACTION = re.compile(r"^- Retraction of C(\d+) \((\d{4}-\d{2}-\d{2})\): (.*)$")
 _PROFILE_LINE = re.compile(r"^- ([a-z][a-z-]*): (C\d+(?:, ?C\d+)*)$")
 _KEYLINE = re.compile(r"^([A-Za-z][A-Za-z0-9_-]*):\s*(.*)$")
 _ROW = re.compile(r"^\| ([a-z0-9][a-z0-9-]*) \|")
@@ -88,20 +91,52 @@ def extract_external_ids(source_value):
     return ids
 
 
+def _wrapped(lines, index):
+    """Two-space indented continuation lines of the bullet just read."""
+    parts = []
+    while (
+        index < len(lines)
+        and lines[index].startswith("  ")
+        and lines[index].strip()
+        and not lines[index].lstrip().startswith("- ")
+    ):
+        parts.append(lines[index].strip())
+        index += 1
+    return parts, index
+
+
 def parse_claims(body, origin):
     """Claims are ``- C<n>: <text>`` items; long quotes wrap onto two-space
     indented continuation lines and the anchor follows the last em-dash.
     An OPTIONAL bracket group carries per-claim concept bindings
     (``- C<n> [slug, slug]: …``); its absence — every historical claim — is
     an empty binding, never an error here (the new-ingest rule lives in
-    ``semantic/binding.py``)."""
+    ``semantic/binding.py``).
+
+    ``- Retraction of C<n> (<date>): <note>`` marks a provenance failure: the
+    quote is not this work's at all. It attaches to that claim rather than
+    editing it. A scientific ``Correction of C<n>`` stays free prose — the
+    quote is still this work's evidence and the claim still stands."""
     claims, problems = [], []
+    retractions = {}
     seen = set()
     lines = body.splitlines()
     index = 0
     while index < len(lines):
-        match = _CLAIM.match(lines[index])
+        line = lines[index]
         index += 1
+        retraction = _RETRACTION.match(line)
+        if retraction:
+            number = int(retraction.group(1))
+            parts, index = _wrapped(lines, index)
+            if number in retractions:
+                problems.append("%s: duplicate retraction of C%d" % (origin, number))
+            retractions[number] = {
+                "date": retraction.group(2),
+                "note": " ".join([retraction.group(3).strip()] + parts),
+            }
+            continue
+        match = _CLAIM.match(line)
         if not match:
             continue
         number = int(match.group(1))
@@ -110,16 +145,8 @@ def parse_claims(body, origin):
             for slug in (match.group(2) or "").split(",")
             if slug.strip()
         ]
-        parts = [match.group(3)]
-        while (
-            index < len(lines)
-            and lines[index].startswith("  ")
-            and lines[index].strip()
-            and not lines[index].lstrip().startswith("- ")
-        ):
-            parts.append(lines[index].strip())
-            index += 1
-        rest = " ".join(parts)
+        parts, index = _wrapped(lines, index)
+        rest = " ".join([match.group(3)] + parts)
         if number in seen:
             problems.append("%s: duplicate claim number C%d" % (origin, number))
         seen.add(number)
@@ -137,6 +164,10 @@ def parse_claims(body, origin):
                 "concepts": bound_concepts,
             }
         )
+    for claim in claims:
+        claim["retracted"] = retractions.pop(claim["n"], None)
+    for number in sorted(retractions):
+        problems.append("%s: retraction of C%d has no such claim" % (origin, number))
     return claims, problems
 
 
@@ -208,6 +239,7 @@ def load_registry(concepts_path, problems):
             "axis": axis,
             "parents": parents,
             "status": cells[2] if len(cells) > 2 else "",
+            "aliases": [s.strip() for s in cells[3].split(",") if s.strip()] if len(cells) > 3 else [],
         }
     return registry
 
@@ -253,7 +285,15 @@ def load_vault_identity(vault):
         problems.extend(claim_problems)
         profile_roles, profile_problems = parse_profile_section(body, origin)
         problems.extend(profile_problems)
+        tables, table_errors = read_tables(body, origin)
+        problems.extend(table_errors)
         work = {
+            "argument": tables["Argument"],
+            "conditions": tables["Conditions"],
+            "relations": tables["Evidence relations"],
+            "publication_status": fm.get("publication_status", "not-recorded"),
+            "read_depth": fm.get("read_depth", "not-recorded"),
+            "source_coverage": fm.get("source_coverage", "not-recorded"),
             "profile_roles": profile_roles,
             "slug": slug,
             "title": fm.get("title", slug),
@@ -278,15 +318,20 @@ def load_vault_identity(vault):
                 "quote": claim["quote"],
                 "anchor": claim["anchor"],
                 "concepts": claim["concepts"],
+                "retracted": claim["retracted"],
             }
 
     for path in _card_files(vault / "gaps"):
         origin = "gaps/" + path.name
-        fm_lines, _, errs = split_frontmatter(path.read_text(encoding="utf-8"), origin)
+        fm_lines, body, errs = split_frontmatter(path.read_text(encoding="utf-8"), origin)
         problems.extend(errs)
         fm, fm_problems = parse_frontmatter(fm_lines, origin)
         problems.extend(fm_problems)
+        tables, table_errors = read_tables(body, origin)
+        problems.extend(table_errors)
         identity["gaps"][path.stem] = {
+            "text": body,
+            "synthesis": tables["Synthesis"],
             "status": fm.get("status", ""),
             "type": fm.get("type", ""),
             "concepts": _as_list(fm.get("concepts"), "concepts", origin, problems),
@@ -296,11 +341,14 @@ def load_vault_identity(vault):
 
     for path in _card_files(vault / "transfers"):
         origin = "transfers/" + path.name
-        fm_lines, _, errs = split_frontmatter(path.read_text(encoding="utf-8"), origin)
+        fm_lines, body, errs = split_frontmatter(path.read_text(encoding="utf-8"), origin)
         problems.extend(errs)
         fm, fm_problems = parse_frontmatter(fm_lines, origin)
         problems.extend(fm_problems)
+        tables, errors = read_tables(body, origin)
+        problems.extend(errors)
         identity["transfers"][path.stem] = {
+            "synthesis": tables["Synthesis"],
             "a": fm.get("a", ""),
             "c": fm.get("c", ""),
             "bridges": _as_list(fm.get("bridges"), "bridges", origin, problems),
@@ -311,7 +359,22 @@ def load_vault_identity(vault):
         }
 
     for path in _card_files(vault / "briefs"):
-        identity["briefs"][path.stem] = {"path": "briefs/" + path.name}
+        origin = "briefs/" + path.name
+        body = path.read_text(encoding="utf-8")
+        fm = {}
+        if body.startswith("---\n"):
+            fm_lines, body, errors = split_frontmatter(body, origin)
+            problems.extend(errors)
+            metadata = [line for line in fm_lines if re.match(r"^(topic|domain|date|view):", line)]
+            fm, errors = parse_frontmatter(metadata, origin)
+            problems.extend(errors)
+        tables, table_errors = read_tables(body, origin)
+        problems.extend(table_errors)
+        identity["briefs"][path.stem] = {
+            "path": origin, "synthesis": tables["Synthesis"],
+            "topic": fm.get("topic", fm.get("domain", "")),
+            "date": str(fm.get("date", path.stem[:10])), "view": fm.get("view", ""),
+        }
 
     _collect_confirmations(identity)
     return identity
@@ -363,3 +426,52 @@ def _collect_confirmations(identity):
                         "slugs": [slug_a, slug_b],
                     }
                 )
+
+
+def domain_partition_report(identity, top=12, stopwords=()):
+    """Read-only input for a govern domain-partition proposal.
+
+    Per domain root: card count, whether domains.md registers it, its most common
+    task tags, and how often the two leading task tags share a card. Also the
+    multi-root card combinations and the shared-axis concepts reached from two or
+    more roots (n-ary bridges), hub stopwords excluded. Judging whether a tag
+    group is a research community stays with the agent.
+    """
+    roots = {slug for slug, row in identity["registry"].items()
+             if row["axis"] == "domain" and not row["parents"]}
+    report = {"roots": {}, "unregistered_roots": sorted(roots - set(identity["domains"])),
+              "cards_without_root": [], "root_pairs": Counter()}
+    for slug, work in sorted(identity["works"].items()):
+        tagged = [tag for tag in work["axes"]["domain"] if tag in roots]
+        if not tagged:
+            report["cards_without_root"].append(slug)
+        if len(set(tagged)) > 1:  # a multi-root card is bridge evidence; a frequent pair is a candidate domain
+            report["root_pairs"][tuple(sorted(set(tagged)))] += 1
+        for root in set(tagged):
+            entry = report["roots"].setdefault(root, {"cards": 0, "registered": root in identity["domains"],
+                                                      "tasks": Counter(), "works": []})
+            entry["cards"] += 1
+            entry["works"].append(slug)
+            entry["tasks"].update(work["axes"]["task"])
+    hubs = {}
+    for slug, work in identity["works"].items():
+        card_roots = {tag for tag in work["axes"]["domain"] if tag in roots}
+        for axis in ("pattern", "function", "failure-mode", "method"):
+            for concept in work["axes"][axis]:
+                if concept in stopwords:
+                    continue
+                for root in card_roots:
+                    hubs.setdefault(concept, {"axis": axis, "domains": Counter()})["domains"][root] += 1
+    report["shared_hubs"] = sorted(
+        ({"concept": c, "axis": h["axis"], "domains": dict(h["domains"])} for c, h in hubs.items() if len(h["domains"]) >= 2),
+        key=lambda h: (-len(h["domains"]), -sum(h["domains"].values()), h["concept"]))
+    for root, entry in report["roots"].items():
+        leading = [tag for tag, _ in entry["tasks"].most_common(2)]
+        shared = 0
+        if len(leading) == 2:
+            shared = sum(1 for slug in entry["works"]
+                         if set(leading) <= set(identity["works"][slug]["axes"]["task"]))
+        entry["tasks"] = entry["tasks"].most_common(top)
+        entry["leading_tasks_share_cards"] = shared
+    return report
+

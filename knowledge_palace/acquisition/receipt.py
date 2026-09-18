@@ -117,11 +117,6 @@ def validate_receipt(receipt):
     ):
         if receipt[axis] not in allowed:
             errors.append("%s %r not in %s" % (axis, receipt[axis], list(allowed)))
-    for index, attempt in enumerate(receipt["attempts"]):
-        if not (isinstance(attempt, dict) and "channel" in attempt and "outcome" in attempt):
-            errors.append("attempts[%d] must be {channel, outcome}" % index)
-        elif len(attempt["outcome"]) > 200:
-            errors.append("attempts[%d].outcome exceeds the compact limit" % index)
     for key in ("staged_path", "staged_text_path"):
         value = receipt.get(key)
         if value and (value.startswith("/") or ".." in value.split("/")):

@@ -1,0 +1,149 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 735" font-family="Segoe UI, Microsoft YaHei, PingFang SC, Noto Sans CJK SC, Helvetica, Arial, sans-serif" role="img" aria-label="KnowledgePalace 概览：为什么做它，论文如何流入有证据支撑的知识库并流向讨论与写作，以及它由什么构成">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f172a"/>
+      <stop offset="1" stop-color="#1e1b4b"/>
+    </linearGradient>
+    <linearGradient id="vault" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#312e81"/>
+      <stop offset="1" stop-color="#1e1b4b"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#94a3b8"/>
+    </marker>
+    <marker id="arrowGold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#fbbf24"/>
+    </marker>
+  </defs>
+
+  <rect width="1200" height="735" rx="18" fill="url(#bg)"/>
+
+  <!-- header -->
+  <g fill="#fbbf24">
+    <path d="M60 68 L88 46 L116 68 z"/>
+    <rect x="62" y="72" width="52" height="4"/>
+    <rect x="66" y="79" width="6" height="20"/>
+    <rect x="79" y="79" width="6" height="20"/>
+    <rect x="91" y="79" width="6" height="20"/>
+    <rect x="104" y="79" width="6" height="20"/>
+    <rect x="60" y="101" width="56" height="5"/>
+  </g>
+  <text x="134" y="80" font-size="36" font-weight="700" fill="#f8fafc">KnowledgePalace</text>
+  <text x="135" y="106" font-size="16" fill="#cbd5e1">用证据说话的科研文献知识库：从你读过的论文，到你要写的论文</text>
+
+  <!-- why -->
+  <text x="60" y="152" font-size="12" font-weight="700" letter-spacing="2" fill="#fbbf24">为什么</text>
+  <g font-size="13">
+    <g>
+      <rect x="60" y="164" width="350" height="92" rx="12" fill="#ffffff" fill-opacity="0.05" stroke="#475569"/>
+      <text x="80" y="192" fill="#94a3b8">✗  AI 摘要越写越偏离原文</text>
+      <text x="80" y="230" font-size="15" font-weight="600" fill="#f8fafc">✓  论文原话 + 精确出处</text>
+    </g>
+    <g>
+      <rect x="425" y="164" width="350" height="92" rx="12" fill="#ffffff" fill-opacity="0.05" stroke="#475569"/>
+      <text x="445" y="192" fill="#94a3b8">✗  证据和推测混在一起</text>
+      <text x="445" y="230" font-size="15" font-weight="600" fill="#f8fafc">✓  结论与假设分开标注</text>
+    </g>
+    <g>
+      <rect x="790" y="164" width="350" height="92" rx="12" fill="#ffffff" fill-opacity="0.05" stroke="#475569"/>
+      <text x="810" y="192" fill="#94a3b8">✗  文献知识零散，一整合就丢了出处</text>
+      <text x="810" y="230" font-size="15" font-weight="600" fill="#f8fafc">✓  跨文献知识整合，步步可追溯</text>
+    </g>
+  </g>
+
+  <!-- workflow -->
+  <text x="60" y="296" font-size="12" font-weight="700" letter-spacing="2" fill="#fbbf24">怎么流转</text>
+
+  <g text-anchor="middle">
+    <rect x="60" y="355" width="160" height="90" rx="12" fill="#0f766e" fill-opacity="0.35" stroke="#5eead4"/>
+    <text x="140" y="393" font-size="18" font-weight="700" fill="#f8fafc">搜集</text>
+    <text x="140" y="418" font-size="12" fill="#99f6e4">init · expand</text>
+
+    <rect x="260" y="355" width="160" height="90" rx="12" fill="#0f766e" fill-opacity="0.35" stroke="#5eead4"/>
+    <text x="340" y="393" font-size="18" font-weight="700" fill="#f8fafc">阅读</text>
+    <text x="340" y="418" font-size="12" fill="#99f6e4">ingest → 论文卡</text>
+
+    <text x="460" y="372" font-size="11" fill="#fbbf24">你确认</text>
+  </g>
+  <path d="M220 400 H258" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M420 400 H498" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+  <circle cx="460" cy="400" r="11" fill="#1e1b4b" stroke="#fbbf24" stroke-width="2"/>
+  <path d="M454.5 400 L458.5 404.5 L466 395.5" fill="none" stroke="#fbbf24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- the palace -->
+  <rect x="500" y="310" width="350" height="180" rx="14" fill="url(#vault)" stroke="#fbbf24" stroke-width="1.5"/>
+  <text x="520" y="340" font-size="17" font-weight="700" fill="#fbbf24">知识宫殿</text>
+  <text x="830" y="340" font-size="12" text-anchor="end" fill="#c7d2fe">Markdown 知识图谱</text>
+  <g font-size="11" text-anchor="middle" fill="#e0e7ff">
+    <rect x="526" y="354" width="80" height="24" rx="12" fill="#ffffff" fill-opacity="0.1"/>
+    <text x="566" y="370">论文卡</text>
+    <rect x="614" y="354" width="70" height="24" rx="12" fill="#ffffff" fill-opacity="0.1"/>
+    <text x="649" y="370">缺口卡</text>
+    <rect x="692" y="354" width="66" height="24" rx="12" fill="#ffffff" fill-opacity="0.1"/>
+    <text x="725" y="370">概念</text>
+    <rect x="766" y="354" width="58" height="24" rx="12" fill="#ffffff" fill-opacity="0.1"/>
+    <text x="795" y="370">桥</text>
+  </g>
+  <rect x="520" y="394" width="310" height="80" rx="8" fill="#0f172a" fill-opacity="0.6"/>
+  <rect x="520" y="394" width="4" height="80" fill="#5eead4"/>
+  <text x="538" y="419" font-size="13" font-style="italic" fill="#f1f5f9">“……论文原话，绝不转述大意……”</text>
+  <text x="538" y="441" font-size="12" font-family="Consolas, Menlo, monospace" fill="#5eead4">— §3.2 ¶4 / p.7</text>
+  <text x="538" y="462" font-size="10.5" fill="#94a3b8">Claim · 引文不可改 · 勘误只追加</text>
+
+  <!-- outputs -->
+  <g fill="none" stroke="#94a3b8" stroke-width="1.8" marker-end="url(#arrow)">
+    <path d="M850 400 C 882 400, 878 330, 908 330"/>
+    <path d="M850 400 C 882 400, 878 377, 908 377"/>
+    <path d="M850 400 C 882 400, 878 424, 908 424"/>
+    <path d="M850 400 C 882 400, 878 471, 908 471"/>
+  </g>
+  <g>
+    <rect x="910" y="310" width="230" height="40" rx="10" fill="#6d28d9" fill-opacity="0.35" stroke="#a78bfa"/>
+    <rect x="910" y="357" width="230" height="40" rx="10" fill="#6d28d9" fill-opacity="0.35" stroke="#a78bfa"/>
+    <rect x="910" y="404" width="230" height="40" rx="10" fill="#6d28d9" fill-opacity="0.35" stroke="#a78bfa"/>
+    <rect x="910" y="451" width="230" height="40" rx="10" fill="#6d28d9" fill-opacity="0.35" stroke="#a78bfa"/>
+    <g font-size="15" font-weight="700" fill="#f8fafc">
+      <text x="926" y="335">讨论</text>
+      <text x="926" y="382">发现</text>
+      <text x="926" y="429">写作</text>
+      <text x="926" y="476">规划</text>
+    </g>
+    <g font-size="11.5" text-anchor="end" fill="#ddd6fe">
+      <text x="1126" y="335">ask · brief</text>
+      <text x="1126" y="382">discover · idea refine</text>
+      <text x="1126" y="429">write · polish · style</text>
+      <text x="1126" y="476">feasibility · research</text>
+    </g>
+  </g>
+
+  <!-- feedback loop -->
+  <path d="M1025 491 V520 H140 V447" fill="none" stroke="#fbbf24" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#arrowGold)"/>
+  <text x="600" y="512" font-size="12" text-anchor="middle" fill="#fde68a">证据不够？继续搜集、入库，再接着回答同一个问题</text>
+
+  <!-- composition -->
+  <text x="60" y="560" font-size="12" font-weight="700" letter-spacing="2" fill="#fbbf24">由什么构成</text>
+  <g>
+    <rect x="60" y="572" width="255" height="106" rx="12" fill="#ffffff" fill-opacity="0.05" stroke="#475569"/>
+    <rect x="335" y="572" width="255" height="106" rx="12" fill="#ffffff" fill-opacity="0.05" stroke="#475569"/>
+    <rect x="610" y="572" width="255" height="106" rx="12" fill="#ffffff" fill-opacity="0.05" stroke="#475569"/>
+    <rect x="885" y="572" width="255" height="106" rx="12" fill="#ffffff" fill-opacity="0.05" stroke="#475569"/>
+    <g font-size="16" font-weight="700" fill="#f8fafc">
+      <text x="80" y="604">LLM 主代理</text>
+      <text x="355" y="604">确定性核心</text>
+      <text x="630" y="604">协议与工作流</text>
+      <text x="905" y="604">四个私有数据目录</text>
+    </g>
+    <g font-size="12.5" fill="#cbd5e1">
+      <text x="80" y="632">Claude Code 或 Codex，外加</text>
+      <text x="80" y="652">9 个只读专家代理</text>
+      <text x="355" y="632">纯标准库 Python：全文获取、</text>
+      <text x="355" y="652">身份识别、图索引、导出</text>
+      <text x="630" y="632">纯 Markdown 规则，按任务读取</text>
+      <text x="630" y="652">没有隐藏逻辑</text>
+      <text x="905" y="632">Vault · State · Sources · Workspace</text>
+      <text x="905" y="652">你的数据不在这个仓库里</text>
+    </g>
+  </g>
+
+  <text x="600" y="712" font-size="13" text-anchor="middle" fill="#94a3b8">每条结论都有出处  ·  引文永不原地修改  ·  未经你确认绝不写入</text>
+</svg>

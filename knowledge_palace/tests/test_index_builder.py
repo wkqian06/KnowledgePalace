@@ -1,7 +1,6 @@
 """Idempotent rebuild, Derived-State-only
 writes, zero Vault rewrites, correct graph shape."""
 
-import hashlib
 import shutil
 import tempfile
 import unittest
@@ -17,14 +16,6 @@ from knowledge_palace.graph.builder import (
 )
 
 MINI = Path(__file__).resolve().parent / "fixtures" / "vault-mini"
-
-
-def tree_digest(base):
-    return [
-        (path.relative_to(base).as_posix(), hashlib.sha256(path.read_bytes()).hexdigest())
-        for path in sorted(base.rglob("*"))
-        if path.is_file()
-    ]
 
 
 class TestFingerprint(unittest.TestCase):
@@ -59,13 +50,13 @@ class TestBuild(unittest.TestCase):
             )
 
     def test_zero_vault_writes_and_state_confinement(self):
-        before = tree_digest(MINI)
+        before = vault_fingerprint(MINI)
         with tempfile.TemporaryDirectory() as td:
             state = Path(td) / "state"
             write_index(MINI, state)
             written = [p.relative_to(state).as_posix() for p in state.rglob("*") if p.is_file()]
             self.assertEqual(written, ["graph-index/index.json"])
-        self.assertEqual(tree_digest(MINI), before)
+        self.assertEqual(vault_fingerprint(MINI), before)
 
     def test_graph_shape(self):
         payload = build_payload(MINI)
@@ -86,7 +77,8 @@ class TestBuild(unittest.TestCase):
         self.assertEqual(len(claim_nodes), 4)
         self.assertEqual(parents["claim:alpha-2020-echo#C1"], ["work:alpha-2020-echo"])
         brief = nodes["brief:2026-07-13-gaps"]
-        self.assertEqual(brief["attrs"], {"role": "view", "evidence_capable": False})
+        self.assertEqual(brief["attrs"], {"role": "view", "evidence_capable": False, "synthesis": [],
+                                          "topic": "", "date": "2026-07-13", "view": ""})
         self.assertFalse(
             [e for e in payload["edges"] if e["from"].startswith("brief:")],
             "briefs must emit zero edges",

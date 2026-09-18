@@ -138,7 +138,8 @@ class TestCli(unittest.TestCase):
         self.assertEqual(code, 0)
         lines = out.getvalue().strip().splitlines()
         self.assertEqual(len(lines), 4)
-        self.assertTrue(lines[0].startswith("vault_dir = /"))
+        self.assertTrue(lines[0].startswith("vault_dir = "))
+        self.assertTrue(Path(lines[0].split(" = ", 1)[1]).is_absolute())
 
     def test_check_mode_is_quiet(self):
         out = io.StringIO()

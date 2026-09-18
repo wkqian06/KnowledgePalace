@@ -2,9 +2,10 @@
 
 A reference the user brings resolves against Vault identity FIRST:
 a hit reuses the existing Work — never a duplicate
-identity; a miss becomes a verified session-local Project Source that can
-participate in novelty comparison and citation but never auto-enters the
-Vault (formal ingestion later is a separate user-initiated ingest flow).
+identity; a miss becomes a temporary Project Source marked for ingestion.
+The resolver itself is read-only. Adopted references go through the shared ingest
+workflow; once the card is saved, ``resolve`` against the fresh vault identity
+returns the Work to cite.
 The external novelty check is a recorded user opt-in bounded to one hop
 and ≤20 candidates — this module records and validates the decision; any
 live search is orchestrator territory under that record.
@@ -13,6 +14,7 @@ live search is orchestrator territory under that record.
 from ..expansion.candidates import build_hit_index, candidate_key, vault_hit
 
 PROJECT_SOURCE_PREFIX = "project-source:"
+ID_PREFIXES = ("claim:", "work:", "gap:", "concept:", "transfer:", "domain:")
 EXTERNAL_HOPS = 1
 EXTERNAL_MAX_CANDIDATES = 20
 
@@ -37,6 +39,7 @@ def resolve(reference, vault_identity):
         "verified": bool(ids),
         "project_local": True,
         "auto_ingest": False,
+        "ingest_required": True,
     }
 
 
@@ -54,7 +57,7 @@ def validate_source(source):
     if source.get("project_local") is not True:
         errors.append("a project source must stay project-local")
     if source.get("auto_ingest") is not False:
-        errors.append("a project source can never auto-ingest into the Vault")
+        errors.append("the read-only resolver does not write cards; use the ingest workflow")
     return errors
 
 

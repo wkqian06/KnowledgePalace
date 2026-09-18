@@ -1,14 +1,7 @@
-"""Interaction layer: coverage-driven grounded Q&A machinery.
+"""Interaction layer: bounded, id-only retrieval for discussion and ideas.
 
-Coverage — not Domain — gates answering. The deterministic pieces live
-here: bounded id-only retrieval (prefilter), the CoverageReport schema that
-controls what each verdict may imply, the ExpansionProposal bridge into
-bounded expansion runs, and resumable InteractionSessions in Derived State. The
-coverage JUDGMENT itself belongs to palace-analyst; external material is
-session-local by schema and can never become Vault-eligible.
-
-Idea refinement rides the same sessions: profile-relative
-novelty over a 10/15/30 coarse-to-fine pipeline (novelty), plus
-Vault-first author references and the recorded external-novelty opt-in
-(project_source).
+prefilter and research_helpers select a bounded candidate set from the Graph
+Index; novelty runs the profile-relative 10/15/30 pipeline for idea refinement;
+project_source resolves author-supplied references against Vault identity and
+records the external-novelty opt-in. Scientific judgment stays with the agent.
 """

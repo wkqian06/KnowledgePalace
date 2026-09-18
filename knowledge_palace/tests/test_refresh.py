@@ -2,13 +2,13 @@
 snapshots never change without it, dry-run writes reports only — zero Vault
 writes, zero network without --live."""
 
-import hashlib
 import json
 import shutil
 import tempfile
 import unittest
 from pathlib import Path
 
+from knowledge_palace.graph.builder import vault_fingerprint
 from knowledge_palace.metadata.cache import BibliographicCache
 from knowledge_palace.metadata.refresh import (
     citations_proposal,
@@ -24,14 +24,6 @@ OPENALEX_FIXTURE = (
     Path(__file__).resolve().parent / "fixtures" / "providers" / "openalex-work.json"
 )
 ALPHA_URL = "https://api.openalex.org/works/doi:10.99999/fixture.alpha2020"
-
-
-def tree_digest(base):
-    return [
-        (p.relative_to(base).as_posix(), hashlib.sha256(p.read_bytes()).hexdigest())
-        for p in sorted(base.rglob("*"))
-        if p.is_file()
-    ]
 
 
 class RefreshCase(unittest.TestCase):
@@ -110,9 +102,9 @@ class TestReportsAreDerivedStateOnly(RefreshCase):
 
     def test_weight_dryrun_zero_vault_writes(self):
         refresh_snapshots(self.vault, self.state, live=False)
-        before = tree_digest(self.vault)
+        before = vault_fingerprint(self.vault)
         report, covered, agreements = weight_dryrun(self.vault, self.state, 2026)
-        self.assertEqual(tree_digest(self.vault), before)
+        self.assertEqual(vault_fingerprint(self.vault), before)
         self.assertEqual(covered, 1)  # only alpha has a snapshot
         text = report.read_text(encoding="utf-8")
         self.assertIn("| alpha-2020-echo | medium |", text)

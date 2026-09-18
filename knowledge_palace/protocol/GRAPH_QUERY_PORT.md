@@ -1,14 +1,12 @@
-# GraphQueryPort — UI-neutral internal query contract (schema v1.0)
+# GraphQueryPort — UI-neutral internal query contract (schema v1.1)
 
 The one internal, read-only query contract over the rebuildable Graph Index.
 Data flow is fixed: `Vault → rebuildable Graph Index → GraphQueryPort → future
-Adapter → Viewer`. The contract consists of this document, the canonical
-schema `graph_query_port.schema.json`, the validator
-`tools/gqp_validator.py`, and contract tests; the Graph Index and a
-production port are implementation decisions (storage format included
-— SQLite is a candidate, not a commitment). Any implementation must pass the
-validator and contract tests unchanged. No HTTP surface, no server, no
-Viewer code belongs to this contract.
+Adapter → Viewer`. The contract consists of this document and the contract
+tests (`tests/test_port_contract.py`); `graph/port.py` is the production
+implementation and the Graph Index storage format is an implementation
+decision. No HTTP surface, no server, no Viewer code belongs to this
+contract.
 
 ## Types
 
@@ -17,7 +15,7 @@ Viewer code belongs to this contract.
 | `IndexSnapshot` | `snapshot_id`, `vault_fingerprint`, `built_at` | identifies the index build a response was served from |
 | `CanonicalRef` | `root` (`vault\|state\|source\|workspace\|framework`), `path`, `anchor?` | logical reference; `path` is a relative, forward-slash path — never absolute, no `..`, no backslash, no drive letter |
 | `NodeView` | `id`, `kind`, `label`, `canonical_ref?`, `attrs{}` | `kind` is an OPEN set (registry-driven); consumers must tolerate unknown kinds |
-| `EdgeView` | `id`, `kind`, `from`, `to`, `attrs{}` | directed; weights and qualitative bands ride in `attrs` |
+| `EdgeView` | `id`, `kind`, `from`, `to`, `attrs{}` | directed; Claim evidence edges carry `EvidenceAttrs`: attribution, comparison, scope, rationale, anchor, source ref and conditions |
 | `HierarchySpec` | `id`, `label`, `levels[]` (`level`, `label`, `node_kinds[]`) | registry-defined; multiple hierarchies coexist |
 | `GraphPage` | `total`, `returned`, `truncated`, `next_cursor`, `items[]` | bounded pagination, see rules below |
 | Error | `error.code`, `error.message`, `error.evidence?` | typed rejection; carries `schema_version` (snapshot optional) |
@@ -29,7 +27,7 @@ Viewer code belongs to this contract.
 | `list_hierarchies` | — | `hierarchies: [HierarchySpec]` |
 | `list_levels` | `hierarchy_id` | `hierarchy_id`, `levels: [HierarchyLevel]` |
 | `query_level` | `hierarchy_id`, `level`, `filters?`, `cursor?`, `limit?` | `page: GraphPage<NodeView>` |
-| `query_context` | `node_id`, `entry_parent?`, `cursor?`, `limit?` | `node`, `parents`, `entry_parent`, `siblings` or `sibling_groups`, `children`, `edges` |
+| `query_context` | `node_id`, `entry_parent?`, `cursor?`, `limit?`, `children_cursor?`, `edges_cursor?` | `node`, `parents`, `entry_parent`, `siblings` or `sibling_groups`, `children`, `edges` |
 | `get_content` | `node_id` | `node_id`, `canonical_ref`, `media_type`, `content`, `truncated` |
 
 These five operations are the entire surface. The port exposes **zero
@@ -38,21 +36,18 @@ operation exists in the contract, and implementations must not add one.
 
 ## Envelope rules
 
-- Every response — success or error — carries `schema_version` (`"1.0"`).
+- Every response — success or error — carries `schema_version` (`"1.1"`; v1.0 responses remain valid).
 - Every success response carries `snapshot` (an `IndexSnapshot`).
-- Errors use the closed code set: `stale_index`, `unknown_hierarchy`,
-  `unknown_node`, `unknown_operation`, `bad_cursor`, `invalid_request`.
+- Errors use the closed code set: `unknown_hierarchy`, `unknown_node`,
+  `unknown_operation`, `bad_cursor`, `invalid_request`.
 
-## Stale-index rejection
+## Index freshness
 
-The Graph Index is a deletable one-way projection of the Vault. Before serving
-any operation, an implementation MUST compare its index's
-`vault_fingerprint` against the current Vault fingerprint. On mismatch it MUST
-refuse the query with `error.code = "stale_index"` and a rebuild hint in
-`error.message` — it must never silently serve stale data. A spec-conforming
-stale rejection is a valid response; a success response served from a stale
-index is a contract violation (`tools/gqp_validator.py` checks this when
-given the current fingerprint).
+The Graph Index is a deletable one-way projection of the Vault. Freshness is
+the caller's job: run `graph.builder.ensure_index(vault, state)` before
+constructing a port — it rebuilds the snapshot whenever the Vault fingerprint
+or index format changed. The port serves the snapshot on disk and stamps
+every response with it.
 
 ## Pagination rules
 
@@ -69,7 +64,9 @@ given the current fingerprint).
 ## Context and multi-parent rules
 
 - `query_context` returns the node, its parents, bounded children, and bounded
-  edges.
+  edges. `cursor` selects siblings; `children_cursor` and `edges_cursor` select
+  their respective pages independently. Omitting them preserves first-page
+  behavior. Viewers follow child/edge cursors to completion.
 - Multi-parent nodes keep the caller's entry parent: when `entry_parent` is
   given (and is a real parent), `siblings` is one GraphPage computed under that
   parent and `entry_parent` echoes it. Without an entry parent, a multi-parent
@@ -83,6 +80,10 @@ Nodes of kind `brief` carry `attrs.role = "view"` and
 `attrs.evidence_capable = false`. No evidence-bearing edge (`evidence`,
 `supports`, `disputes`, `claims`) may originate from a brief node. Briefs can
 locate the sources they cite; they can never generate an evidence edge.
+`depends_on` is a non-evidence edge from a Brief/Gap synthesis to a Claim/Gap.
+The additional evidence relations and required Claim-edge attributes are defined
+in `EVIDENCE.md`; legacy Work-to-Gap edges remain
+valid. Problem comparisons never manufacture author attribution.
 
 ## Logical references only
 
@@ -95,5 +96,5 @@ are never returned by the port.
 ## Versioning
 
 `schema_version` follows `major.minor`: additive optional fields bump the
-minor; anything breaking bumps the major and requires a new design-decision record. Validators
+minor; anything breaking bumps the major and requires a new design-decision record. Consumers
 reject responses whose major version they do not know.

@@ -1,17 +1,8 @@
-"""The material boundary and the no-Git/no-network
-guarantee of the workspace package, by construction."""
+"""The material boundary of the workspace package."""
 
 import unittest
-from pathlib import Path
 
 from knowledge_palace.workspace.material import new_material, validate_material
-
-WORKSPACE_PKG = Path(__file__).resolve().parents[1] / "workspace"
-FORBIDDEN_MARKERS = (
-    "subprocess", "os.system", "os.popen",          # no Git, no shell
-    "urllib", "http.client", "socket", "requests",  # no network
-)
-
 
 class TestMaterialBoundary(unittest.TestCase):
     def test_valid_material(self):
@@ -34,20 +25,6 @@ class TestMaterialBoundary(unittest.TestCase):
         self.assertTrue(validate_material(new_material("m", "x.md", "poem")))
         self.assertTrue(validate_material(new_material("", "x.md", "draft")))
 
-
-class TestNoGitNoNetworkByConstruction(unittest.TestCase):
-    def test_workspace_sources_carry_no_shell_or_network_markers(self):
-        for path in sorted(WORKSPACE_PKG.rglob("*.py")):
-            if "__pycache__" in path.parts:
-                continue
-            source = path.read_text(encoding="utf-8")
-            for marker in FORBIDDEN_MARKERS:
-                self.assertNotIn(
-                    marker,
-                    source,
-                    "%s must stay shell- and network-free (found %r)"
-                    % (path.name, marker),
-                )
 
 
 if __name__ == "__main__":

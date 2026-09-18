@@ -22,10 +22,13 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from ..tools import SCHEMA_VERSION
 from .identity import AXES, load_vault_identity
+from ..semantic.evidence_helpers import claim_ref, dependencies, evidence_changes
+from ..semantic.update_helpers import merge_updates, load_updates, project_impacts
 
 INDEX_RELPATH = Path("graph-index") / "index.json"
+INDEX_FORMAT = 3
+GQP_VERSION = "1.1"
 
 HIERARCHY = {
     "id": "domain-concept-work",
@@ -79,9 +82,11 @@ def build_payload(vault):
     edges = {}
     unresolved = []
 
-    def add_edge(source, kind, target):
+    def add_edge(source, kind, target, attrs=None):
         edge_id = "%s|%s|%s" % (source, kind, target)
         edges[edge_id] = {"id": edge_id, "kind": kind, "from": source, "to": target}
+        if attrs is not None:
+            edges[edge_id]["attrs"] = attrs
 
     def concept_ref(slug):
         if slug in identity["domains"]:
@@ -91,13 +96,17 @@ def build_payload(vault):
         return None
 
     for slug, name in identity["domains"].items():
-        nodes["domain:" + slug] = _node("domain:" + slug, "domain", name, "domains.md", slug)
+        nodes["domain:" + slug] = _node(
+            "domain:" + slug, "domain", name, "domains.md", slug,
+            attrs={"aliases": identity["registry"].get(slug, {}).get("aliases", [])},
+        )
         parents["domain:" + slug] = []
 
     for slug, row in identity["registry"].items():
         node_id = "concept:" + slug
         nodes[node_id] = _node(
-            node_id, "concept", slug, "concepts.md", slug, attrs={"axis": row["axis"]}
+            node_id, "concept", slug, "concepts.md", slug,
+            attrs={"axis": row["axis"], "aliases": row["aliases"]}
         )
         resolved = []
         for parent_slug in row["parents"]:
@@ -110,7 +119,11 @@ def build_payload(vault):
 
     for slug, work in sorted(identity["works"].items()):
         node_id = "work:" + slug
-        nodes[node_id] = _node(node_id, "work", str(work["title"]), work["path"])
+        nodes[node_id] = _node(node_id, "work", str(work["title"]), work["path"], attrs={
+            "year": work["year"], "argument": work["argument"],
+            "conditions": work["conditions"], "publication_status": work["publication_status"],
+            "read_depth": work["read_depth"], "source_coverage": work["source_coverage"],
+        })
         placement = []
         for axis in ("task", "pattern", "domain"):
             for tag in work["axes"].get(axis, []):
@@ -136,18 +149,25 @@ def build_payload(vault):
     for claim_id, claim in sorted(identity["claims"].items()):
         node_id = "claim:" + claim_id
         work_id = "work:" + claim["work"]
-        label = "C%d — %s" % (claim["n"], claim["quote"][:80])
+        retracted = claim.get("retracted")
+        label = "C%d%s — %s" % (
+            claim["n"], " (retracted)" if retracted else "", claim["quote"][:80])
+        attrs = {"quote": claim["quote"], "anchor": claim["anchor"]}
+        if retracted:
+            attrs["retracted"] = retracted
         nodes[node_id] = _node(
             node_id,
             "claim",
             label,
             identity["works"][claim["work"]]["path"],
             "C%d" % claim["n"],
-            attrs={"quote": claim["quote"], "anchor": claim["anchor"]},
+            attrs=attrs,
         )
         parents[node_id] = [work_id]
-        add_edge(work_id, "claims", node_id)
-        for bound in claim.get("concepts") or []:
+        # A retracted quote is not this work's evidence: it leaves the `claims`
+        # edge and binds no concept, so retrieval and novelty stop reaching it.
+        add_edge(work_id, "retracted_claims" if retracted else "claims", node_id)
+        for bound in (claim.get("concepts") or []) if not retracted else []:
             target = concept_ref(bound)
             if target:
                 add_edge(node_id, "binds", target)
@@ -166,7 +186,8 @@ def build_payload(vault):
     for slug, gap in sorted(identity["gaps"].items()):
         node_id = "gap:" + slug
         nodes[node_id] = _node(
-            node_id, "gap", slug, gap["path"], attrs={"status": gap["status"], "type": gap["type"]}
+            node_id, "gap", slug, gap["path"], attrs={"status": gap["status"], "type": gap["type"],
+                "text": gap["text"], "synthesis": gap["synthesis"]}
         )
         placement = []
         for tag in gap["concepts"]:
@@ -197,7 +218,10 @@ def build_payload(vault):
     for slug, transfer in sorted(identity["transfers"].items()):
         node_id = "transfer:" + slug
         nodes[node_id] = _node(
-            node_id, "transfer", slug, transfer["path"], attrs={"status": transfer["status"]}
+            node_id, "transfer", slug, transfer["path"],
+            attrs={"status": transfer["status"], "synthesis": transfer["synthesis"],
+                   "dependencies": ["work:" + p for p in transfer["papers"]]
+                                   + ["gap:" + g for g in transfer["gaps"]]}
         )
         parents[node_id] = []
         for field, kind in (("a", "transfer-from"), ("c", "transfer-to")):
@@ -230,10 +254,45 @@ def build_payload(vault):
             "brief",
             slug,
             brief["path"],
-            attrs={"role": "view", "evidence_capable": False},
+            attrs={"role": "view", "evidence_capable": False, "synthesis": brief["synthesis"],
+                   "topic": brief["topic"], "date": brief["date"], "view": brief["view"]},
         )
         parents[node_id] = []
-        # Briefs are views: they emit zero edges (GRAPH_QUERY_PORT.md).
+        # Dependencies identify what a view consumes, never what it proves.
+
+    for slug, work in sorted(identity["works"].items()):
+        for row in work["argument"]:
+            reference = claim_ref(slug, row["claim"])
+            if reference not in nodes or not reference.startswith("claim:" + slug + "#"):
+                unresolved.append("%s: argument claim %r" % (work["path"], row["claim"]))
+        for row in work["conditions"]:
+            reference = claim_ref(slug, row["evidence"])
+            if reference not in nodes or not reference.startswith("claim:" + slug + "#"):
+                unresolved.append("%s: condition evidence %r" % (work["path"], row["evidence"]))
+        for row in work["relations"]:
+            source, target = claim_ref(slug, row["claim"]), row["target"]
+            if (source not in nodes or not source.startswith("claim:" + slug + "#")
+                    or target not in nodes or nodes[target]["kind"] not in ("claim", "gap")):
+                unresolved.append("%s: evidence relation %s -> %s" % (work["path"], source, target))
+                continue
+            attrs = {key: row[key] for key in ("attribution", "comparison", "scope", "rationale")}
+            attrs["claim_ref"] = source
+            attrs["source_ref"] = dict(nodes[source]["canonical_ref"])
+            attrs["anchor"] = nodes[source]["attrs"]["anchor"]
+            attrs["conditions"] = work["conditions"]
+            edge_id = "%s|%s|%s" % (source, row["relation"], target)
+            if edge_id in edges:
+                identity["parse_errors"].append("%s: duplicate evidence relation %s" % (work["path"], edge_id))
+                continue
+            add_edge(source, row["relation"], target, attrs)
+
+    for node_id, node in sorted(nodes.items()):
+        for entry in node.get("attrs", {}).get("synthesis", []):
+            for ref in dependencies(entry):
+                if ref not in nodes or nodes[ref]["kind"] not in ("claim", "gap"):
+                    unresolved.append("%s: synthesis %s dependency %r" % (node_id, entry["id"], ref))
+                    continue
+                add_edge(node_id, "depends_on", ref)
 
     payload = {
         "hierarchies": [copy.deepcopy(HIERARCHY)],
@@ -254,13 +313,15 @@ def build_payload(vault):
     return payload
 
 
-def write_index(vault, state):
+def write_index(vault, state, workspace=None):
     """Build and persist the snapshot. Writes only under state/graph-index/."""
     vault, state = Path(vault), Path(state)
+    previous = load_index(state)
     fingerprint = vault_fingerprint(vault)
     payload = build_payload(vault)
     document = {
-        "schema_version": SCHEMA_VERSION,
+        "index_format": INDEX_FORMAT,
+        "schema_version": GQP_VERSION,
         "snapshot": {
             "snapshot_id": "snap-" + fingerprint[:12],
             "vault_fingerprint": fingerprint,
@@ -271,11 +332,28 @@ def write_index(vault, state):
     }
     target = state / INDEX_RELPATH
     target.parent.mkdir(parents=True, exist_ok=True)
+    if previous is not None and previous["payload"] != payload:
+        updates = evidence_changes(previous["payload"], payload)
+        if workspace is not None:
+            updates.extend(project_impacts(workspace, previous["payload"], payload, updates))
+        (target.parent / "synthesis-updates.json").write_text(
+            json.dumps(merge_updates(load_updates(state), updates, document["snapshot"]), ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
     target.write_text(
         json.dumps(document, sort_keys=True, ensure_ascii=False, indent=1) + "\n",
         encoding="utf-8",
     )
     return target, document
+
+
+def ensure_index(vault, state, workspace=None):
+    """Maintain Derived State before dispatch; the query port stays read-only."""
+    document = load_index(state)
+    if (document is None or document.get("index_format") != INDEX_FORMAT
+            or document["snapshot"]["vault_fingerprint"] != vault_fingerprint(vault)):
+        _, document = write_index(vault, state, workspace)
+    return document
 
 
 def load_index(state):
@@ -290,6 +368,8 @@ def check(vault, state):
     document = load_index(state)
     if document is None:
         return "absent", "no index at %s — rebuildable" % (Path(state) / INDEX_RELPATH)
+    if document.get("index_format") != INDEX_FORMAT:
+        return "stale", "index format changed — rebuild"
     current = vault_fingerprint(vault)
     served = document["snapshot"]["vault_fingerprint"]
     if current != served:
@@ -308,13 +388,14 @@ def check(vault, state):
 
 def _roots(args):
     if args.vault and args.state:
-        return Path(args.vault), Path(args.state)
+        return Path(args.vault), Path(args.state), None
     from ..tools.config_resolver import resolve_roots
 
     roots = resolve_roots(args.config)
     return (
         Path(args.vault) if args.vault else roots["vault_dir"],
         Path(args.state) if args.state else roots["state_dir"],
+        roots["workspace_dir"],
     )
 
 
@@ -329,7 +410,7 @@ def run(argv):
     action.add_argument("--check", action="store_true")
     args = parser.parse_args(argv)
     try:
-        vault, state = _roots(args)
+        vault, state, workspace = _roots(args)
         if args.fingerprint:
             print(vault_fingerprint(vault))
             return 0
@@ -337,7 +418,7 @@ def run(argv):
             status, detail = check(vault, state)
             print("%s — %s" % (status, detail))
             return 0 if status == "fresh" else 1
-        target, document = write_index(vault, state)
+        target, document = write_index(vault, state, workspace)
         report = document["payload"]["identity_report"]
         print("wrote %s" % target)
         print(

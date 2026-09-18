@@ -1,0 +1,5 @@
+# Optional Codex skill metadata — display only. Protocol content lives in
+# knowledge_palace/ (shared core); this file must never carry rules.
+interface:
+  display_name: "KnowledgePalace"
+  short_description: "Evidence-backed paper library: collect, read, discuss, write"

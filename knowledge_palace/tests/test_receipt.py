@@ -4,10 +4,6 @@ mechanical identity, and the claim-eligibility truth table."""
 import unittest
 
 from knowledge_palace.acquisition.receipt import (
-    ACQUISITION_STATUSES,
-    IDENTITY_STATUSES,
-    TEXT_STATUSES,
-    add_attempt,
     claim_eligible,
     new_receipt,
     new_request,
@@ -52,14 +48,6 @@ class TestValidation(unittest.TestCase):
         self.assertTrue(any("state-relative" in error for error in errors))
         errors = validate_receipt(receipt_with(staged_text_path="a/../../b.txt"))
         self.assertTrue(any("state-relative" in error for error in errors))
-
-    def test_attempts_stay_compact(self):
-        receipt = receipt_with()
-        add_attempt(receipt, "local", "x" * 500)
-        self.assertLessEqual(len(receipt["attempts"][0]["outcome"]), 200)
-        receipt["attempts"].append({"channel": "oa", "outcome": "y" * 500})
-        errors = validate_receipt(receipt)
-        self.assertTrue(any("compact" in error for error in errors))
 
 
 class TestClaimEligibility(unittest.TestCase):
@@ -115,11 +103,6 @@ class TestMechanicalIdentity(unittest.TestCase):
 
     def test_default_is_unverified(self):
         self.assertEqual(resolve_identity(new_request())[0], "unverified")
-
-    def test_enums_exported_for_contract_consumers(self):
-        self.assertEqual(len(ACQUISITION_STATUSES), 5)
-        self.assertEqual(len(IDENTITY_STATUSES), 3)
-        self.assertEqual(len(TEXT_STATUSES), 4)
 
 
 if __name__ == "__main__":

@@ -22,9 +22,14 @@ related: []                                      # optional cross-gap analogy li
 ## Status rationale
 
 <!-- Append-only. Every status change adds a line; never rewrite old lines.
-     Transitions require ≥1 high/medium relation; preprint/low-only can never
-     close or reverse (PALACE.md qualitative rule 1). -->
-- <YYYY-MM-DD> <old> → <new>: <rationale citing relation weights>
+     Transitions cite Claims, study design and applicable conditions. -->
+- <YYYY-MM-DD> <old> → <new>: <subquestion advanced, Claim refs, remaining conditions>
+
+## Synthesis
+
+| ID | Statement | Claims | Gaps | Rationale |
+|---|---|---|---|---|
+| S1 | <current system judgment with explicit scope> | claim:<paper>#C1 | - | <evidence design, dependencies, remaining subquestions> |
 
 ## Open subquestions
 

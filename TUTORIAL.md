@@ -1,3 +1,5 @@
+> Current task routes: [Commands](knowledge_palace/protocol/COMMANDS.md). Selected literature is ingested; reading updates its card. `write` and `polish` share manuscript analysis; `feasibility` assesses a design. Direct manuscript tasks need no new project.
+
 # KnowledgePalace Tutorial
 
 English | [中文](TUTORIAL.zh-CN.md)
@@ -13,6 +15,7 @@ Conventions used below:
 - `>` — something you type to the agent (Claude Code or Codex) in the
   Framework root. `/palace …` commands and natural-language equivalents
   both work.
+  In Codex write `$palace …` instead of `/palace …`.
 - **Confirm** — Palace never writes to your data without showing you a
   packaged confirmation first. Answering "no" always leaves everything
   byte-identical.
@@ -44,15 +47,14 @@ source_dir = "../KnowledgePalace-sources"
 workspace_dir = "../KnowledgePalace-workspace"
 ```
 
-Verify everything (read-only, zero writes, zero network):
+Verify the config (read-only, zero writes, zero network):
 
 ```bash
-$ python3 -m knowledge_palace.tools.doctor
+$ python3 -m knowledge_palace.tools.config_resolver
 ```
 
-You want every root reported resolvable and distinct, and both runtimes'
-contracts complete. An "index: absent (rebuildable)" line is normal before
-your first ingest.
+You want all four roots printed as absolute paths; a config error names the
+offending line or the missing/duplicated directory.
 
 Optional but recommended: make the private roots (except sources) one Git
 repository of your own — that is entirely your business; Palace never runs
@@ -76,15 +78,15 @@ What happens:
    review papers, proposes a seed concept subtree (reusing the shared
    pattern/function/failure-mode/metric axes first), and you confirm one
    package → `domains.md` row + concept rows are written.
-2. **Corpus scouting.** Palace searches by topic via OpenAlex (Crossref /
-   Semantic Scholar fallbacks), mines the reviews' references, and applies
-   the default mix policy: ≥20% classics, 2–4 reviews, every method
-   generation ≥3 papers, ≥25% recent frontier.
+2. **Corpus scouting.** Palace searches by topic through the available
+   providers or browsing tools and mines the reviews' references. Citation
+   and venue data are shown as context, never as a quality score; queries,
+   dates and selection reasons are recorded.
 3. **One candidate table** (~30 rows: title / year / venue / citations /
-   track). You circle your selection **once** — this is the only selection
-   pass.
-4. **Batch ingest**, 5–10 papers per batch, one merged confirmation per
-   batch (see Tutorial 2 for what each confirmation contains).
+   why it was found). You circle your selection **once** — this is the only
+   selection pass; Palace never asks you to reselect the same papers.
+4. **Ingest every selected paper** (see Tutorial 2). Papers already in the
+   vault are reused, never duplicated.
 
 Afterwards:
 
@@ -112,19 +114,23 @@ path anyway):
 
 The flow you will see:
 
-1. **Metadata + citations** fetched and stamped with `citations_date`.
-2. **Dedup gate** — the tentative slug (`<firstauthor>-<year>-<titleword>`)
-   and DOI are grepped against the vault. On a hit you choose: **skip**,
-   **deepen** (add new claims to the existing card; existing quotes are
-   never touched), or **correct** (append marked corrections).
-3. **palace-extractor** drafts the card: verbatim claims with anchors,
-   limitation-derived gap candidates, transfer notes, a suggested weight
-   band.
-4. **palace-linker** aligns it against 5–15 prefiltered candidates: concept
-   slug alignments, ≤5 new-concept proposals, a weighted gap-relation table.
-5. **One packaged confirmation** shows you all of it — card, INDEX row,
-   registry candidates, gap status proposals. Approve, and the orchestrator
-   writes to the Vault.
+1. **Identity** — DOI, arXiv id and title are matched against the vault. A
+   hit reuses the existing card and deepens it; existing quotes and anchors
+   are never touched. A preprint/published pair is verified before merging.
+2. **Material** — the best available source (local file, Zotero, open access,
+   or a browsing/PDF tool) goes into the Source Cache. The card records
+   `source_coverage` (what you hold) and `read_depth` (what was read); a PDF
+   on disk is not a reading.
+3. **Reading** — to your question and the requested depth: the author's
+   question, method, principal findings and boundaries; load-bearing Claims
+   related to the analysis or figure that supports them.
+4. **The card draft** — verbatim Claims with anchors, Argument and Conditions
+   rows, an optional `## Analysis evidence` table, dated `## Reading notes`,
+   concept tags and gap relations aligned against the registry.
+5. **Save** through `save_paper`: it refuses a duplicate identity, keeps every
+   old Claim, checks depth against coverage and updates the INDEX row. After
+   the batch the index is rebuilt once and affected judgments are listed
+   (`/palace updates`).
 
 Now look at what was written:
 
@@ -142,7 +148,9 @@ authors: [Smith, J., ...]
 year: 2023
 citations: 42
 citations_date: 2026-07-17
-weight: medium (IF 4.2 in 3–10)        # derivation persisted inline
+weight: medium (IF 4.2 in 3–10)        # bibliographic context, not a score
+read_depth: full                       # full | skim | abstract | metadata
+source_coverage: full-text             # full-text | excerpt | abstract | metadata
 domain: [diffusion-models]             # always includes the domain root
 method: [classifier-free-guidance]
 gaps:
@@ -157,8 +165,10 @@ local: fulltext/smith-2023-emergent.pdf   # source_dir-relative pointer
   — §4.2 [¶3] / p.6
 ```
 
-Every claim: a verbatim quote, an anchor, and (since KP-07) at least one
-concept binding. If a fact has no anchor, it is not in the vault.
+Every claim: a verbatim quote, an anchor, and at least one concept binding.
+If a fact has no anchor, it is not in the vault. An abstract-only paper gets a
+card whose Claims are abstract quotes and whose Limitations say so; a
+metadata-only record gets a card with no Claims at all.
 
 ---
 
@@ -168,24 +178,26 @@ concept binding. If a fact has no anchor, it is not in the vault.
 > /palace ask does classifier-free guidance hurt sample diversity?
 ```
 
-Three possible outcomes, decided by **coverage**, not by vibes:
+Palace decides what the question needs — a background explanation, paper
+evidence, a cross-paper comparison, a tentative explanation — and answers in
+plain prose with source links:
 
-- **Sufficient** — a full answer in which *every sentence* carries a tag:
-  `[C:smith-2023-emergent]` (a paper states it — go read the anchor),
-  `[S]` (synthesis across cards), `[H:transfer-x]` (hypothesis). Weights
-  are shown side by side; minority evidence is never drowned.
-- **Partial** — only the covered subquestions are answered; the holes are
-  listed explicitly ("no vault evidence on diversity metrics beyond FID").
-- **Insufficient** — no answer is fabricated. Instead you get a bounded
-  **ExpansionProposal**: seed papers/queries derived from the holes, depth
-  ≤2, budget ≤50 candidates.
+- Sentences a paper supports cite the card (`[C:smith-2023-emergent]`; go read
+  the anchor). Minority evidence sits next to majority evidence.
+- Synthesis and hypotheses are labeled as such and name what they rest on; a
+  hypothesis does not need a Transfer card, and a concept explanation does not
+  need a Claim.
+- What the library does not cover is stated ("no vault evidence on diversity
+  metrics beyond FID") rather than fabricated — and does not block a clearly
+  labeled explanation.
 
-If you accept the proposal, it runs as a normal bounded expansion
-(Tutorial 4); when it completes, the **same session resumes** and coverage
-is recomputed — ask your question again and the holes should have closed.
+When more literature would change the answer, Palace offers to collect it. Say
+yes and it runs `init`/`expand` (Tutorial 4), ingests the papers you select, and
+**continues the same question** with the new Claims.
 
-Answers are chat-only by default. Say "save it" and it goes through the
-auditor + one confirmation into `briefs/<date>-ask-<slug>.md`.
+Answers are chat-only by default. Say "keep this" and the working definitions,
+decisions, alternatives and next step go into the project's `research.md`
+(Tutorial 7c); say "save it" for a dated brief in `briefs/`.
 
 ---
 
@@ -222,12 +234,13 @@ Once you have ~10+ papers:
 > /palace brief gaps                    # ranked open problems, who tried, why unresolved
 > /palace brief map classifier-free-guidance   # one concept's method timeline + disputes
 > /palace brief ideas                   # gap × transfer opportunity cards
+> /palace brief progress guidance-schedule   # question evolution, advances, remaining evidence
 ```
 
-Every brief is drafted by palace-analyst, then **audited** by
-palace-auditor (anchors verifiable, `[C]/[S]/[H]` boundaries respected) —
-up to two revision loops before delivery. You confirm the save to
-`briefs/<YYYY-MM-DD>-<view>.md`. Briefs are dated, disposable views: re-run
+Every brief is drafted from the bounded research context (`progress <topic>`
+adds question evolution and remaining subquestions). Ask for an audit pass when
+you want an independent check of anchors and source boundaries. You confirm the
+save to `briefs/<YYYY-MM-DD>-<view>.md`. Briefs are dated, disposable views: re-run
 `brief gaps` in a month and diff the two files to watch your field's
 picture evolve.
 
@@ -260,8 +273,8 @@ experiment. You select which ones become `transfers/transfer-<slug>.md`.
    novelty on (mechanism? method? application transfer? …). Verdicts are
    only ever issued on those dimensions.
 2. If you supply references, they resolve Vault-first: known Works are
-   reused; unknown ones become verified session-local sources (never
-   auto-ingested).
+   reused; unknown ones become temporary project sources. Adopt one and it
+   is ingested through the normal path (Tutorial 2), then cited by its card.
 3. A deterministic coarse-to-fine pipeline narrows context: ≤10 corridors →
    ≤15 closest works → ≤30 related claims.
 4. You get an **IdeaAssessment**: supporting vs opposing vs unknown
@@ -285,43 +298,107 @@ Save lands in `briefs/<date>-idea-<slug>.md` after audit + confirmation.
 
 First run creates the Workspace project (one confirmation):
 `workspace/projects/guidance-anneal-paper/` with `project.yaml` (kind,
-audience, venue, language, length, citation style, style profile) and eight
-subdirectories.
+audience, venue, language, length, citation style, style profile) and its
+subdirectories. Direct text needs none of this — `/palace write` and
+`/palace polish` also accept a pasted passage or a file.
 
 Then, in order:
 
 1. **Register inputs.** Your drafts, figures, data, and reviewer comments
    become ProjectMaterials; your reference list resolves Vault-first into
-   Project Sources. Materials feed writing but can never become Vault
-   evidence.
-2. **Freeze the brief.** Problem, contribution, section plan, and the
-   evidence package (id-shaped refs with verbatim quotes AND anchors) are
-   frozen and fingerprinted. Every subsequent writer package pins that
-   fingerprint — the writer cannot silently expand its evidence scope.
+   Project Sources, and any paper you adopt from outside is ingested.
+   Materials feed writing but can never become Vault evidence.
+2. **Manuscript analysis.** Before touching prose Palace records, in
+   `outline/manuscript-analysis.md`: the research question, central claim and
+   evidence, the whole-paper argument and section roles, target reader, your
+   writing intent, canonical terms and unresolved inputs. It is reused on
+   later tasks while it still matches the manuscript, and updated after a
+   substantive change — never redone just because you asked for another
+   polish.
 3. **Draft a section:**
 
    ```
    > /palace write guidance-anneal-paper introduction
    ```
 
-   palace-writer drafts within the frozen brief → palace-reviewer reviews →
-   at most two automatic revision rounds → palace-auditor checks anchors
-   and fabrication. Unresolved findings are shown to you, never looped
-   away. A Results-kind section without your registered data comes back
-   placeholder-only — results are never invented.
+   The argument and paragraph roles come first; the draft is built from the
+   selected evidence and your materials; one focused review follows, with at
+   most two automatic revisions. Unresolved findings are shown to you, never
+   looped away. A Results-kind section without your registered data comes
+   back placeholder-only — results are never invented. `draft intro <topic>`
+   is the same route for an introduction.
 4. **Confirm the save** → `sections/introduction/r001.md`. Revisions are
    append-only; the next save is `r002.md`, and `assembled` is the reserved
    section name for the stitched full document. Declining the save keeps
    the delivery chat-only and the Workspace byte-identical.
-5. **Export.** The export step shows you a replayable pandoc plan (CSL:
-   explicit override > `project.yaml` > APA; exact argument list) — the run
-   executes exactly the plan you saw, into `exports/`, overwriting nothing.
-   No pandoc installed → Palace says so instead of improvising.
+5. **Polish a passage:**
 
-For grant proposals (`kind: proposal`), the solicitation text first becomes
-an anchored **Requirements Matrix**; every uncovered requirement is named
-in each delivery, and budget/institutional/preliminary-result statements
-validate only against your registered materials.
+   ```
+   > /palace polish guidance-anneal-paper introduction "The gap has a second component ..."
+   ```
+
+   Palace reads the analysis and the surrounding text, decides whether the
+   problem is wording, paragraph logic or the scientific claim, revises only
+   that passage, and checks numbers, units, terms, citations, claim strength
+   and boundary conditions against the original. Everything else in the
+   section stays byte-identical; the result is `r002.md`. A scientific
+   problem is reported, not polished into apparent certainty; a substantial
+   restructuring is handed to `write`.
+
+Grant proposals (`kind: proposal`) follow the same route: register the
+solicitation as a material and its requirements become part of the analysis;
+budget, institutional and preliminary-result statements come only from your
+registered materials.
+
+---
+
+## Tutorial 7b — Judge a design's feasibility
+
+```
+> /palace feasibility "Compare SRH computed from forecast-available HRRR
+  profiles against SRH from observed storm motions, using our event packages."
+```
+
+(or a file, or a project whose research notes hold the plan.)
+
+Palace reads the proposal, your registered materials and the relevant Claims,
+then reasons about the decisive issues: what explanations the design
+distinguishes; whether variables, sampling scale and independent units match;
+whether the controls can separate the alternatives; and whether the data,
+access, computation, storage, skills and time actually exist. You get one of
+可执行 / 满足明确条件后可执行 / 需调整方案 / 目前无法判断, the decisive
+conditions, the smallest useful pilot with its possible outcomes, and what
+would change the decision. Resources are estimated only from what you supplied
+— a method being available in a paper says nothing about your data. Say "keep
+this" and the judgment lands in the project's `research.md`; the experiment
+itself is never run for you.
+
+---
+
+## Tutorial 7c — Research notes and evidence reviews
+
+```
+> /palace research guidance-anneal-paper
+```
+
+shows the project's `research.md`: learning goals, working definitions,
+Synthesis rows that declare which Claims and Gaps they depend on, decisions,
+constraints and Observations that point to your registered materials. Any
+discussion, feasibility judgment or reading you ask to keep is appended here,
+so "continue where we left off on the sampling design" recovers the actual
+choices and their grounds.
+
+After new papers are ingested the index is rebuilt and every judgment whose
+declared evidence changed becomes a pending review:
+
+```
+> /palace updates
+> /palace updates resolve gap:guidance-fidelity S1
+```
+
+Review the evidence, edit the synthesis if needed, and record `retain`,
+`revise` or `withdraw` with a reason. Recording a decision never edits
+scientific text by itself; later evidence changes reopen the item.
 
 ---
 
@@ -337,6 +414,9 @@ deterministic — no LLM — and walks the frozen GraphQueryPort only. Open the
 file in any browser, fully offline: the domain → concept → work/gap
 hierarchy as a browsable tree with a per-node detail pane. Truncation is
 reported honestly (`returned`/`total`); the page makes zero network calls.
+
+For an Obsidian vault, `/palace wiki export [<dir>]` regenerates only the
+marked hub pages; your own notes and the original cards stay untouched.
 
 If the export aborts with a stale index, rebuild first:
 
@@ -355,8 +435,9 @@ Roughly every ~20 ingested papers (or when Palace mentions a trigger):
 ```
 
 You get proposals, each with a grep-computed impact list: candidate
-concepts ready for promotion (≥3 genuine-use supporters from ≥2
-independent author clusters), provisional weights due for re-derivation,
+concepts ready for promotion (≥3 genuine-use supporters with evidence from
+distinct data or analyses), provisional
+bibliographic bands due for explicit refresh,
 recurring unregistered terms, orphan tags, deprecated-slug migrations.
 Confirmed edits are applied and logged as dated Governance Decisions in the
 Vault's append-only `governance/decisions.md`. `govern` never touches the
@@ -384,10 +465,9 @@ normal confirm-then-write path.
 
 | Symptom | Fix |
 |---|---|
-| `doctor` reports an unresolvable root | the four paths in `.palace.toml` resolve relative to that file — check them from the Framework root, not your shell CWD |
-| `stale_index` refusals / viewer export aborts | the Vault changed since the last snapshot: `python3 -m knowledge_palace.graph.builder --rebuild` |
+| `config_resolver` reports an unresolvable root | the four paths in `.palace.toml` resolve relative to that file — check them from the Framework root, not your shell CWD |
 | Ingest says the paper already exists | that's the dedup gate — choose skip, deepen (add claims), or correct (append marked corrections); it never overwrites |
-| Ask refuses to answer | coverage is insufficient — that's the design; accept the expansion proposal or narrow the question |
-| Export step reports pandoc missing | install pandoc yourself; Palace deliberately never installs software or improvises a converter |
+| Ask says the library has no evidence on part of the question | that part is answered as labeled background or hypothesis; let Palace collect literature, or narrow the question |
+| `save_paper` refuses a card | read the listed reasons: a duplicate identity (reuse the named slug), a changed old quote (append a correction instead), or a reading depth that outruns the material |
 | A count looks wrong in `status` | counts are computed live from files — inspect the vault directly; INDEX↔file mismatches are listed in the consistency block |
 | Want your vault in Git | do it yourself in the private roots; Palace will neither help nor interfere — that boundary is by design |

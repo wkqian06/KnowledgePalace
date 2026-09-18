@@ -1,9 +1,0 @@
-{
-  "schema_version": "1.0",
-  "snapshot": {"snapshot_id": "snap-001", "vault_fingerprint": "fp-vault-001", "built_at": "2026-07-13T00:00:00Z"},
-  "node_id": "work-alpha-2020-echo",
-  "canonical_ref": {"root": "vault", "path": "C:\\vault\\papers\\alpha-2020-echo.md", "anchor": null},
-  "media_type": "text/markdown",
-  "content": "# card",
-  "truncated": false
-}

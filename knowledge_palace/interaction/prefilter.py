@@ -16,7 +16,7 @@ from itertools import combinations
 from ..semantic.corridors import _domain_resolver, find_corridors
 
 CANDIDATE_CAP = 15
-_TOKEN = re.compile(r"[a-z0-9][a-z0-9-]{2,}")
+_TOKEN = re.compile(r"[a-z0-9][a-z0-9-]+|[\u3400-\u9fff]+")
 # Question scaffolding only — DOMAIN policy stopwords (PALACE.md hub list)
 # are injected by the orchestrator, never hard-coded here.
 DEFAULT_STOPWORDS = frozenset(
@@ -37,14 +37,43 @@ def extract_terms(question, stopwords=()):
     return seen
 
 
+def text_values(value):
+    """Substantive strings from nested attributes, excluding schema keys."""
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for item in value.values():
+            yield from text_values(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from text_values(item)
+
+
 def _matches(term, node_id, node):
-    return term in node["label"].lower() or term in node_id.lower()
+    text = " ".join([node["label"], node_id] + list(text_values(node.get("attrs", {})))).lower()
+    if re.fullmatch(r"[a-z0-9]+", term):
+        return re.search(r"(?<![a-z0-9])" + re.escape(term) + r"(?![a-z0-9])", text) is not None
+    return term in text
 
 
-def find_candidates(payload, question, stopwords=(), cap=CANDIDATE_CAP):
-    """Bounded deterministic candidate descriptors for one question."""
-    cap = max(1, min(int(cap), CANDIDATE_CAP))
+def query_terms(payload, question, stopwords=()):
+    """Match vocabulary aliases and their canonical concepts in a query."""
     terms = extract_terms(question, stopwords)
+    # Match registered phrases against the whole query, including unsegmented
+    # Chinese questions. Domain vocabulary lives in the Vault registry.
+    for node_id, node in payload["nodes"].items():
+        if node["kind"] not in ("concept", "domain"):
+            continue
+        for alias in node.get("attrs", {}).get("aliases", []):
+            if _matches(alias.lower(), "", {"label": question}):
+                terms.append(alias.lower())
+                terms.append(node_id.split(":", 1)[1])
+    return list(dict.fromkeys(terms))
+
+
+def candidate_matches(payload, question, stopwords=()):
+    """Index-only match pool; callers choose the bounded reading set."""
+    terms = query_terms(payload, question, stopwords)
     reasons = {}  # node_id -> set of reason strings
 
     def add(node_id, reason):
@@ -59,7 +88,10 @@ def find_candidates(payload, question, stopwords=(), cap=CANDIDATE_CAP):
                 continue
             if node["kind"] in _CANDIDATE_KINDS:
                 add(node_id, "term:" + term)
-            elif node["kind"] == "concept":
+            elif node["kind"] == "claim":
+                for parent in payload["parents"].get(node_id, []):
+                    add(parent, "claim:%s (term:%s)" % (node_id, term))
+            elif node["kind"] in ("concept", "domain"):
                 # Attached works/gaps join via edges and placement parents.
                 # ponytail: O(terms×concepts×edges) rescans — fine under the
                 # cap at personal scale; pre-index edges by target if the
@@ -67,6 +99,9 @@ def find_candidates(payload, question, stopwords=(), cap=CANDIDATE_CAP):
                 for edge in payload["edges"]:
                     if edge["to"] == node_id:
                         add(edge["from"], "concept:%s (term:%s)" % (node_id, term))
+                        if payload["nodes"].get(edge["from"], {}).get("kind") == "claim":
+                            for parent in payload["parents"].get(edge["from"], []):
+                                add(parent, "concept:%s (term:%s)" % (node_id, term))
                 for child, parents in payload["parents"].items():
                     if node_id in parents:
                         add(child, "concept:%s (term:%s)" % (node_id, term))
@@ -86,6 +121,13 @@ def find_candidates(payload, question, stopwords=(), cap=CANDIDATE_CAP):
                 for node_id in corridor[side]:
                     add(node_id, "corridor:%s" % corridor["via"])
 
+    return reasons
+
+
+def find_candidates(payload, question, stopwords=(), cap=CANDIDATE_CAP):
+    """Bounded deterministic candidate descriptors for one question."""
+    reasons = candidate_matches(payload, question, stopwords)
+    cap = max(1, min(int(cap), CANDIDATE_CAP))
     ranked = sorted(
         reasons.items(), key=lambda item: (-len(item[1]), item[0])
     )[:cap]

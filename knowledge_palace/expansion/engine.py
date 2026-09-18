@@ -53,6 +53,14 @@ def expand_next(run, provider, vault_identity, hit_index=None):
         return True
     next_depth = node_depth + 1
     for record, direction in _neighbors(provider, ids, run):
+        record_ids = record.get("ids") or {}
+        if not record_ids.get("doi") and record_ids.get("openalex") and hasattr(provider, "resolve"):
+            # Reference lists carry only provider ids; cards carry DOIs. Resolve
+            # before matching so a library paper is a hit, not a new candidate.
+            try:
+                record = provider.resolve({"openalex": record_ids["openalex"]})
+            except ProviderError as err:
+                run.warnings.append("resolve %s: %s" % (record_ids["openalex"], err.detail))
         hit_slug = vault_hit(record, hit_index)
         if hit_slug:
             # Vault Hit: verify/record the edge, never re-ingest; hits may
