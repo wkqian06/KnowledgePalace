@@ -208,8 +208,9 @@ Observations that point to registered materials.
 _Avoid_: Literature Claim, chat transcript
 
 **Feasibility Judgment**:
-The verdict on a specified design — 可执行 / 满足明确条件后可执行 / 需调整方案 /
-目前无法判断 — with the decisive conditions, the smallest useful pilot and the
+The verdict on a specified design — feasible / feasible once stated conditions
+are met / design needs revision / cannot be judged yet — with the decisive
+conditions, the smallest useful pilot and the
 separation of scientific identifiability from operational feasibility. Kept in
 Research Notes on request.
 _Avoid_: Numeric feasibility score, field-completeness check

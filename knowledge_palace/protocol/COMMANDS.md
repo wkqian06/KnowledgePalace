@@ -65,9 +65,9 @@ question. Neither requires a numeric score or a fixed paper quota.
 For library context, from the Framework directory:
 
 ```powershell
-python -m knowledge_palace.interaction.research ask "SRH" --json
-python -m knowledge_palace.interaction.research progress "强对流环境时空特征" --alternative SRH
-python -m knowledge_palace.interaction.research ask "取样方案" --project scs-benchmark --json
+python -m knowledge_palace.interaction.research ask "echo cancellation" --json
+python -m knowledge_palace.interaction.research progress "echo cancellation under reverberation" --alternative EC
+python -m knowledge_palace.interaction.research ask "sampling design" --project <project-slug> --json
 ```
 
 These commands return evidence and context, not automatically verified scientific

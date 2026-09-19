@@ -268,7 +268,7 @@ what each command is *for* and what it *writes*:
 | `/palace ask <question>` | explanation, comparison or continuing discussion (see §6); library statements cite Claims, background and hypotheses are labeled; collects and ingests literature when that would change the answer, then resumes |
 | `/palace research <project>` | project research notes: questions, working definitions, decisions, constraints, material-linked observations; updated when you ask to keep a discussion |
 | `/palace updates` · `updates resolve <node> <entry>` | judgments whose declared evidence changed at index maintenance · record your review (retain / revise / withdraw) |
-| `/palace feasibility <idea\|file\|project>` | 可执行 / 满足明确条件后可执行 / 需调整方案 / 目前无法判断, with decisive conditions and the smallest useful pilot; scientific identifiability separated from operational feasibility |
+| `/palace feasibility <idea\|file\|project>` | feasible / feasible once stated conditions are met / design needs revision / cannot be judged yet, with decisive conditions and the smallest useful pilot; scientific identifiability separated from operational feasibility |
 | `/palace discover [<target>]` | ≤5 transfer candidates, each with ≥2 non-stopword bridges, typed relation, two-sided evidence, one validation experiment |
 | `/palace idea refine <text\|file>` | IdeaAssessment: evidence for/against/unknown, closest prior work, falsifiers + minimal experiment; novelty vault-relative on your confirmed profile dimensions |
 

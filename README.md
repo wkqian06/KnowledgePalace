@@ -74,15 +74,16 @@ answer, Palace collects it, ingests what you select, and continues.
   keeps append-only `rNNN.md` revisions. Results are never fabricated.
 - **Feasibility** (`/palace feasibility`) — judges whether a design can answer
   its question and be executed with the data, resources and time you actually
-  have: 可执行 / 满足明确条件后可执行 / 需调整方案 / 目前无法判断, with the
-  decisive conditions and the smallest useful pilot.
+  have: feasible / feasible once stated conditions are met / design needs
+  revision / cannot be judged yet, with the decisive conditions and the
+  smallest useful pilot.
 - **Research notes** (`/palace research`, `/palace updates`) — per-project
   questions, working definitions, decisions, constraints and material-linked
   observations; `updates` lists judgments whose evidence changed and records
   your review.
 - **Style library** (`/palace style`) — 7-dimension style feature cards from
-  papers you admire, crystallized into journal/language profiles that bind
-  drafting.
+  papers you admire, crystallized into journal/language profiles that a
+  project can select for drafting.
 - **Introductions** (`/palace draft intro`) — the write workflow's
   introduction route.
 

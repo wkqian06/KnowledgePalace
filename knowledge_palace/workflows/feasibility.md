@@ -21,8 +21,9 @@ include event selection, time of information availability, spatial/temporal supp
 product uncertainty, independent evaluation and physical interpretation. Do not turn
 these examples into compulsory fields for every discipline.
 
-Return one of: 可执行 / 满足明确条件后可执行 / 需调整方案 / 目前无法判断,
-with the evidence and decisive conditions. Separate scientific identifiability
+Return one of: feasible / feasible once stated conditions are met / design needs
+revision / cannot be judged yet (stated in the user's language), with the evidence
+and decisive conditions. Separate scientific identifiability
 from operational feasibility. Name the smallest useful pilot, its comparison,
 possible outcomes and what would change the decision. Estimate resources only from
 supplied information or an actual authorized measurement; otherwise state the missing

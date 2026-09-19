@@ -355,8 +355,9 @@ registered materials.
 ## Tutorial 7b — Judge a design's feasibility
 
 ```
-> /palace feasibility "Compare SRH computed from forecast-available HRRR
-  profiles against SRH from observed storm motions, using our event packages."
+> /palace feasibility "Compare annealed against constant guidance on a public
+  protein-structure diffusion model: 500 samples per setting, diversity and
+  designability as metrics, one 24 GB GPU for two weeks."
 ```
 
 (or a file, or a project whose research notes hold the plan.)
@@ -366,9 +367,9 @@ then reasons about the decisive issues: what explanations the design
 distinguishes; whether variables, sampling scale and independent units match;
 whether the controls can separate the alternatives; and whether the data,
 access, computation, storage, skills and time actually exist. You get one of
-可执行 / 满足明确条件后可执行 / 需调整方案 / 目前无法判断, the decisive
-conditions, the smallest useful pilot with its possible outcomes, and what
-would change the decision. Resources are estimated only from what you supplied
+feasible / feasible once stated conditions are met / design needs revision /
+cannot be judged yet, the decisive conditions, the smallest useful pilot with
+its possible outcomes, and what would change the decision. Resources are estimated only from what you supplied
 — a method being available in a paper says nothing about your data. Say "keep
 this" and the judgment lands in the project's `research.md`; the experiment
 itself is never run for you.

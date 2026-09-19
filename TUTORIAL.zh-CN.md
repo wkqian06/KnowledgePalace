@@ -312,8 +312,9 @@ local: fulltext/smith-2023-emergent.pdf   # 全文在 source_dir 里的位置
 ## 教程 7b——判断一个方案可不可行
 
 ```
-> /palace feasibility "用我们的事件包，比较预报可得时刻的 HRRR 廓线算出的
-  SRH 和用观测风暴移动算出的 SRH。"
+> /palace feasibility "在一个公开的蛋白质结构扩散模型上比较退火引导和恒定
+  引导：每种设置采 500 个样本，指标用多样性和可设计性，一张 24 GB 显卡
+  跑两周。"
 ```
 
 （也可以给文件，或给一个研究笔记里已有方案的项目。）
