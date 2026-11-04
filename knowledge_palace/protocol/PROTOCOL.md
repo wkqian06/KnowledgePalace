@@ -48,7 +48,8 @@ Every repair is checked against the cached source first. That check also decides
 the smaller case: a quote found elsewhere in this work corrects only its anchor.
 Repairs move toward the source and never away, so save_paper accepts a changed
 quote only when the new wording is verbatim in that work's cached text and
-refuses it when no cached text exists. A retracted Claim leaves the work's claims
+refuses it when no cached text exists. A new Claim's quote meets the same test at
+its first save wherever that cached text exists. A retracted Claim leaves the work's claims
 edge, binds no concept and cannot be cited by Argument, Conditions or Evidence
 relations rows. No missing method, result or limitation is filled from an unseen
 section.
@@ -70,7 +71,7 @@ includes card/source preservation. Carry prior authorization forward. Ask only f
 unresolved identity, changed scope or genuinely missing user intent.
 
 save_paper is the common paper-card write boundary: identity reuse, old Claims,
-new references and INDEX update. Rebuild derived context once after the batch and
+new quotes, new references and INDEX update. Rebuild derived context once after the batch and
 related Gap edits. Source promotion retains immutable originals. Saved project
 sections use append-only revisions; polish never overwrites its source by default.
 

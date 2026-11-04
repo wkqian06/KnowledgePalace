@@ -9,7 +9,10 @@ differently when it fires. Scientific correctness is never one of these checks.
 - Boundary: the one write path for paper cards and the papers INDEX.
 - Prevents: a second card for a paper already in the library (shared DOI/arXiv id
   or identical title under another slug); silent edits to an existing Claim's
-  quote or anchor; a metadata-only or abstract-only source labeled as a full or
+  quote or anchor; a new Claim whose quote is not verbatim in the paper's cached
+  text (checked when `source_dir` is passed and a non-OCR text cache exists;
+  otherwise the result reports `quotes_checked: false`);
+  a metadata-only or abstract-only source labeled as a full or
   skimmed reading; new Claims bound to unregistered concepts; evidence relations
   pointing at Claims/Gaps that do not exist; a misspelled `source_coverage` that
   would bypass the abstract gate.

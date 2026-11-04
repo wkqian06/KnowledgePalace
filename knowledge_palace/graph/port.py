@@ -5,9 +5,13 @@ response carries schema_version + the index snapshot. Callers run
 ``builder.ensure_index`` first so the snapshot on disk matches the Vault.
 """
 
+import argparse
+import json
+import sys
 from pathlib import Path
 
 from .builder import GQP_VERSION, INDEX_RELPATH, load_index
+from ..tools.config_resolver import resolve_roots
 
 _MAX_CONTENT = 200_000
 
@@ -179,3 +183,33 @@ class GraphQueryPort:
                 "truncated": truncated,
             }
         )
+
+
+if __name__ == "__main__":
+    sys.stdout.reconfigure(encoding="utf-8")
+    # ---- Operation ----
+    parser = argparse.ArgumentParser(description="One GraphQueryPort operation as a JSON envelope on stdout.")
+    parser.add_argument("operation", choices=("list_hierarchies", "list_levels", "query_level",
+                                              "query_context", "get_content"))
+    parser.add_argument("target", nargs="*", help="hierarchy_id [level] | node_id")
+    parser.add_argument("--entry-parent")
+    parser.add_argument("--cursor")
+    parser.add_argument("--children-cursor")
+    parser.add_argument("--edges-cursor")
+    parser.add_argument("--limit", type=int)
+    parser.add_argument("--config")
+    args = parser.parse_args()
+    arity = {"list_hierarchies": 0, "list_levels": 1, "query_level": 2, "query_context": 1, "get_content": 1}
+    if len(args.target) != arity[args.operation]:
+        parser.error("%s takes %d target argument(s)" % (args.operation, arity[args.operation]))
+    # ---- Dispatch over the snapshot on disk (read-only: the index is not rebuilt here) ----
+    roots = resolve_roots(args.config)
+    port = GraphQueryPort(roots["vault_dir"], roots["state_dir"])
+    if args.operation == "query_level":
+        response = port.query_level(args.target[0], int(args.target[1]), cursor=args.cursor, limit=args.limit)
+    elif args.operation == "query_context":
+        response = port.query_context(args.target[0], args.entry_parent, args.cursor, args.limit,
+                                      args.children_cursor, args.edges_cursor)
+    else:
+        response = getattr(port, args.operation)(*args.target)
+    print(json.dumps(response, ensure_ascii=False))

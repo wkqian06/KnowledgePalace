@@ -126,9 +126,12 @@ The flow you will see:
    related to the analysis or figure that supports them.
 4. **The card draft** — verbatim Claims with anchors, Argument and Conditions
    rows, an optional `## Analysis evidence` table, dated `## Reading notes`,
-   concept tags and gap relations aligned against the registry.
+   concept tags and gap relations aligned against the registry. Its domain is
+   inferred from the paper and the library's holdings; a paper that no
+   registered domain holds opens a new one, and the report gives the reasoning.
 5. **Save** through `save_paper`: it refuses a duplicate identity, keeps every
-   old Claim, checks depth against coverage and updates the INDEX row. After
+   old Claim, checks each new quote against the paper's cached text, checks
+   depth against coverage and updates the INDEX row. After
    the batch the index is rebuilt once and affected judgments are listed
    (`/palace updates`).
 
@@ -245,8 +248,8 @@ save to `briefs/<YYYY-MM-DD>-<view>.md`. Briefs are dated, disposable views: re-
 picture evolve.
 
 Cross-domain discovery unlocks at ≥15 papers total and ≥3 cross-domain
-papers (register the second domain via `/palace domain add` *before*
-ingesting its papers):
+papers (a second domain is registered with `/palace domain add`, or opened
+by ingest when a paper calls for one):
 
 ```
 > /palace discover gap-guidance-fidelity
@@ -321,10 +324,16 @@ Then, in order:
    > /palace write guidance-anneal-paper introduction
    ```
 
-   The argument and paragraph roles come first; the draft is built from the
-   selected evidence and your materials; one focused review follows, with at
-   most two automatic revisions. Unresolved findings are shown to you, never
-   looped away. A Results-kind section without your registered data comes
+   Give the framing, motivation and design of the article; a few lines are
+   enough. Palace builds the argument graph from them: short nodes joined by
+   labelled links, one node per paragraph and a chain from opening to landing
+   inside each paragraph. It is a light guide that comes before the text. The
+   text is then written in one pass from the graph, the selected evidence and
+   your materials, under the numbered writing rules in
+   `workflows/writing.md`, and reviewed once against those rules before you
+   see it. You receive the graph followed by the text. To revise, change a
+   node or a link, or hand over a new chain, and the affected paragraphs are
+   rewritten from it. Unresolved findings are shown to you, never looped away. A Results-kind section without your registered data comes
    back placeholder-only — results are never invented. `draft intro <topic>`
    is the same route for an introduction.
 4. **Confirm the save** → `sections/introduction/r001.md`. Revisions are
@@ -469,6 +478,6 @@ normal confirm-then-write path.
 | `config_resolver` reports an unresolvable root | the four paths in `.palace.toml` resolve relative to that file — check them from the Framework root, not your shell CWD |
 | Ingest says the paper already exists | that's the dedup gate — choose skip, deepen (add claims), or correct (append marked corrections); it never overwrites |
 | Ask says the library has no evidence on part of the question | that part is answered as labeled background or hypothesis; let Palace collect literature, or narrow the question |
-| `save_paper` refuses a card | read the listed reasons: a duplicate identity (reuse the named slug), a changed old quote (append a correction instead), or a reading depth that outruns the material |
+| `save_paper` refuses a card | read the listed reasons: a duplicate identity (reuse the named slug), a changed old quote (append a correction instead), a new quote that is not verbatim in the cached text (quote the paper's wording; if the quote is right, re-extract the damaged cache), or a reading depth that outruns the material |
 | A count looks wrong in `status` | counts are computed live from files — inspect the vault directly; INDEX↔file mismatches are listed in the consistency block |
 | Want your vault in Git | do it yourself in the private roots; Palace will neither help nor interfere — that boundary is by design |

@@ -8,7 +8,7 @@ from pathlib import Path
 
 from knowledge_palace.graph.builder import build_payload, ensure_index, write_index
 from knowledge_palace.interaction.prefilter import find_candidates
-from knowledge_palace.interaction.research_helpers import research_context, render_progress
+from knowledge_palace.interaction.research_helpers import bounded_context, research_context, render_progress
 from knowledge_palace.semantic.evidence_helpers import evidence_changes, read_tables
 
 MINI = Path(__file__).parent / "fixtures" / "vault-mini"
@@ -86,6 +86,29 @@ class TestResearch(unittest.TestCase):
         self.assertIn("Problem evolution", report)
         self.assertIn("partially_addresses", report)
         self.assertIn("../papers/alpha-2020-echo.md#C1", report)
+
+    def test_bounded_view_claim_order(self):
+        context = research_context(build_payload(self.vault), "noise floors")
+        relation = {"from": "claim:alpha-2020-echo#C1", "kind": "partially_addresses", "to": "gap:gap-echo-noise"}
+        view = bounded_context(context, 1)
+        self.assertEqual([row["node_id"] for row in view["candidates"]],
+                         [row["node_id"] for row in context["candidates"]])
+        work = view["works"]["work:alpha-2020-echo"]
+        self.assertEqual(work["claims_total"], 2)
+        # C2 carries the query terms; C1 is only cited by the argument and a relation.
+        self.assertEqual(work["claims"], [{"id": "C2", "anchor": "§5 / p.9",
+            "quote": context["claims"]["claim:alpha-2020-echo#C2"]["attrs"]["quote"]}])
+        self.assertNotIn(relation, view["relations"])
+        self.assertEqual(view["gaps"]["gap:gap-echo-noise"]["path"], "gaps/gap-echo-noise.md")
+        wider = bounded_context(context, 2)
+        self.assertEqual([claim["id"] for claim in wider["works"]["work:alpha-2020-echo"]["claims"]], ["C2", "C1"])
+        self.assertIn(relation, wider["relations"])
+        # A retracted Claim still matches the query text, but it is not evidence.
+        self.paper.write_text(self.paper.read_text(encoding="utf-8")
+                              + "\n- Retraction of C2 (2026-09-18): not in this paper.\n", encoding="utf-8")
+        after = bounded_context(research_context(build_payload(self.vault), "noise floors"), 2)
+        work = after["works"]["work:alpha-2020-echo"]
+        self.assertEqual((work["claims_total"], [claim["id"] for claim in work["claims"]]), (1, ["C1"]))
 
     def test_incremental_evidence_reaches_gap_dependencies(self):
         before = build_payload(self.vault)

@@ -40,12 +40,12 @@ def resolve_output_path(output, roots):
     return target
 
 
-def export(output=None, config_path=None):
+def export(output=None, config_path=None, lean=False):
     """Build the bundle and write it atomically. Returns the output Path."""
     roots = resolve_roots(config_path)
     target = resolve_output_path(output, roots)
     ensure_index(roots["vault_dir"], roots["state_dir"], roots["workspace_dir"])
-    payload = build_bundle(roots["vault_dir"], roots["state_dir"])
+    payload = build_bundle(roots["vault_dir"], roots["state_dir"], lean=lean)
     payload["citations"] = citation_overlay(payload, roots["state_dir"])
     html = render(canonical_bytes(payload))
 
@@ -67,9 +67,11 @@ def run(argv):
     )
     parser.add_argument("output", nargs="?", help="output HTML path (default: ./%s)" % DEFAULT_FILENAME)
     parser.add_argument("--config", help="path to .palace.toml")
+    parser.add_argument("--lean", action="store_true",
+                        help="graph and paper/gap/transfer cards only; keeps the page small on a large library")
     args = parser.parse_args(argv)
     try:
-        target = export(args.output, args.config)
+        target = export(args.output, args.config, args.lean)
     except (ConfigError, ValueError, FileNotFoundError) as err:
         print("viewer export: %s" % err)
         return 1

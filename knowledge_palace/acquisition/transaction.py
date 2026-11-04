@@ -24,31 +24,41 @@ from ..semantic.evidence_helpers import read_tables
 FULLTEXT_DIRNAME = "fulltext"
 
 
-def quote_is_in_source(quote, local, source_dir):
-    """Is this exact wording present in the work's own cached text?
+def fold(text):
+    """Erase case, punctuation and every separator: these caches wrap lines
+    mid-word, drop ligatures and lose hyphens, none of which is evidence."""
+    return re.sub(r"[^a-z0-9]+", "", unicodedata.normalize("NFKD", text).lower())
 
-    A transcription repair rewrites a quote in place, so the boundary has to
-    see for itself that the new wording is the paper's. Case, punctuation and
-    every separator are erased on both sides first: these caches wrap lines
-    mid-word, drop ligatures and lose hyphens, none of which is evidence.
-    Without a cached text there is nothing to check against, so the repair is
-    refused rather than assumed. An OCR-derived cache is refused too: its
-    characters are a guess at the page, so "matching the source" there would
-    license repairing a quote into the scanner's own mistakes.
+
+def checkable_source(local, source_dir):
+    """The work's own cached text, folded, or None when no quote can be checked
+    against it.
+
+    Without a cached text there is nothing to check against. An OCR-derived
+    cache does not count either: its characters are a guess at the page, so
+    "matching the source" there would license repairing a quote into the
+    scanner's own mistakes.
     """
     if not source_dir or not local:
-        return False
+        return None
     text_file = (Path(source_dir) / local.strip()).with_suffix(".txt")
     if not text_file.exists():
-        return False
-    header = text_file.read_text(encoding="utf-8", errors="replace")[:400]
-    if re.search(r"^TOOL:.*OCR", header, re.MULTILINE | re.IGNORECASE):
-        return False
-    def fold(text):
-        return re.sub(r"[^a-z0-9]+", "", unicodedata.normalize("NFKD", text).lower())
+        return None
+    text = text_file.read_text(encoding="utf-8", errors="replace")
+    if re.search(r"^TOOL:.*OCR", text[:400], re.MULTILINE | re.IGNORECASE):
+        return None
+    return fold(text)
 
-    return fold(quote.strip().strip('"')) in fold(
-        text_file.read_text(encoding="utf-8", errors="replace"))
+
+def quote_is_in_source(quote, source):
+    """Is this exact wording present in the work's folded cached text?
+
+    The write boundary has to see for itself that a quote is the paper's. A
+    quote that elides part of a passage is checked piece by piece; the pieces
+    are looked up independently, since a two-column cache may interleave them.
+    """
+    pieces = re.split(r"\[?(?:…|\.\.\.)\]?", quote.strip().strip('"'))
+    return all(fold(piece) in source for piece in pieces)
 
 
 def copy_immutable(staged_file, destination):
@@ -163,6 +173,11 @@ def save_paper(vault_dir, card_text, source_dir=None):
     the new wording is verbatim in that work's cached text — a transcription
     slip is corrected toward the source, not away from it. Without it, every
     old quote must be returned unchanged.
+
+    With `source_dir`, a new Claim's quote must likewise be verbatim in that
+    cached text. Where the text cannot be consulted (no `source_dir`, no cache,
+    an OCR cache) new quotes are saved unchecked and the result says so in
+    `quotes_checked`.
     """
     vault = Path(vault_dir)
     lines, body, errors = split_frontmatter(card_text, "paper draft")
@@ -189,6 +204,7 @@ def save_paper(vault_dir, card_text, source_dir=None):
         errors.append("existing paper identity changed; resolve its version before saving")
     old = {value["n"]: value for value in identity["claims"].values() if value["work"] == slug}
     current = {claim["n"]: claim for claim in claims}
+    source = checkable_source(fields.get("local"), source_dir)
     for number, claim in old.items():
         # The quote is the evidence and never changes. The anchor is only a
         # locator into the source: a provenance check that finds the quote
@@ -197,7 +213,7 @@ def save_paper(vault_dir, card_text, source_dir=None):
         if number not in current:
             errors.append("C%d is missing; retract a claim in place, never delete it" % number)
         elif (current[number]["quote"] != claim["quote"]
-              and not quote_is_in_source(current[number]["quote"], fields.get("local"), source_dir)):
+              and (source is None or not quote_is_in_source(current[number]["quote"], source))):
             errors.append(
                 "C%d's new quote is not verbatim in this work's cached text; a repair must "
                 "match the source, a misreading appends a correction, and a quote that is "
@@ -211,6 +227,15 @@ def save_paper(vault_dir, card_text, source_dir=None):
                 errors.append("%s row cites retracted C%s; repoint it or drop the row"
                               % (section, number))
     new_claims = [claim for claim in claims if claim["n"] not in old]
+    # A quote is evidence from its first save, so where the work's text can be
+    # consulted the wording must already be the paper's.
+    if source is not None:
+        for claim in new_claims:
+            if not claim["retracted"] and not quote_is_in_source(claim["quote"], source):
+                errors.append(
+                    "C%d's quote is not verbatim in this work's cached text; quote the "
+                    "paper's own wording, or re-extract the cache if its text is damaged"
+                    % claim["n"])
     binding = validate_claims(new_claims, identity["registry"])
     if not binding["ok"]:
         errors.append("new Claim concepts do not resolve: %s" % binding)
@@ -258,4 +283,5 @@ def save_paper(vault_dir, card_text, source_dir=None):
         write_text(index, updated_index)
     return {"work": "work:" + slug, "path": str(destination),
             "status": "unchanged" if unchanged else "updated" if prior else "created",
-            "read_depth": depth, "source_coverage": coverage, "new_claims": len(new_claims)}
+            "read_depth": depth, "source_coverage": coverage, "new_claims": len(new_claims),
+            "quotes_checked": source is not None}

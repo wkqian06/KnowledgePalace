@@ -124,13 +124,26 @@ def candidate_matches(payload, question, stopwords=()):
     return reasons
 
 
+def match_rank(node_id, why):
+    """Sort key for one match: the more query terms it covers the earlier it reads;
+    then terms carried by its own label or a concept tag, then matching Claims.
+    A corridor reason names no query term, so it never outranks a direct match."""
+    covered, tagged = set(), set()
+    for reason in why:
+        if reason.startswith("corridor:"):
+            continue
+        term = reason.rsplit("term:", 1)[1].rstrip(")")
+        covered.add(term)
+        if not reason.startswith("claim:"):
+            tagged.add(term)
+    return (-len(covered), -len(tagged), -sum(reason.startswith("claim:") for reason in why), node_id)
+
+
 def find_candidates(payload, question, stopwords=(), cap=CANDIDATE_CAP):
     """Bounded deterministic candidate descriptors for one question."""
     reasons = candidate_matches(payload, question, stopwords)
     cap = max(1, min(int(cap), CANDIDATE_CAP))
-    ranked = sorted(
-        reasons.items(), key=lambda item: (-len(item[1]), item[0])
-    )[:cap]
+    ranked = sorted(reasons.items(), key=lambda item: match_rank(*item))[:cap]
     return [
         {
             "node_id": node_id,

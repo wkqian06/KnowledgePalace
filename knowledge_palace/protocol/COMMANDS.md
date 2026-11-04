@@ -47,8 +47,9 @@ a card even if only verified metadata or its abstract is available.
 Existing explicit user selection and authorization remain valid. New choices
 about ambiguous identity or expanded scope require resolution, not a repeated
 approval of the same papers. Save reviewed cards through
-`acquisition.transaction.save_paper(vault_dir, card_text)` and prepare the index
-once after the batch and related knowledge edits.
+`acquisition.transaction.save_paper(vault_dir, card_text, source_dir)` and prepare
+the index once after the batch and related knowledge edits. With `source_dir`, new
+Claim quotes are checked verbatim against the paper's cached text.
 
 Network access is task-scoped: collection, acquisition and requested external
 research may use available providers or web tools. Refresh only owns bibliographic
@@ -94,6 +95,12 @@ scientific text. Later evidence changes can reopen it.
 ## Write, polish and feasibility
 
 Write and polish both read workflows/writing.md and its shared manuscript-analysis.md.
+The author gives the framing, motivation and design, however briefly; the text is
+then written in one pass from the analysis's argument graph (light nodes and
+labelled links: one node per paragraph, and a chain from opening to landing inside
+each) under the numbered writing rules in writing.md, which the review reports
+against. The graph precedes the text in what is delivered, and the author revises
+by changing its nodes and links.
 Direct materials need no project or roots configuration. Project mode uses the brief,
 registered materials, current sections, analysis and selected style. Generic academic
 style is the default; target-specific rules load only when requested.

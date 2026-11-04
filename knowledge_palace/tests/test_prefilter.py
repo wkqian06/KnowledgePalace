@@ -9,6 +9,7 @@ from knowledge_palace.interaction.prefilter import (
     CANDIDATE_CAP,
     extract_terms,
     find_candidates,
+    match_rank,
 )
 from knowledge_palace.semantic.corridors import _domain_resolver
 from knowledge_palace.tests.test_semantic_corridors import synthetic_dense_payload
@@ -24,6 +25,16 @@ class TestTerms(unittest.TestCase):
     def test_injected_policy_stopwords(self):
         terms = extract_terms("deep-learning echo model", stopwords=["deep-learning", "model"])
         self.assertEqual(terms, ["echo"])
+
+
+class TestRank(unittest.TestCase):
+    def test_coverage_beats_corridors(self):
+        both_terms = match_rank("work:b", {"term:cold", "claim:b#C1 (term:pool)"})
+        one_term = match_rank("work:a", {"claim:a#C1 (term:pool)"} | {"corridor:concept:x%d" % n for n in range(18)})
+        self.assertLess(both_terms, one_term)
+        tagged = match_rank("work:d", {"concept:concept:cold-pool (term:cold)"})
+        quoted = match_rank("work:c", {"claim:c#C1 (term:cold)", "claim:c#C2 (term:cold)"})
+        self.assertLess(tagged, quoted)
 
 
 class TestVaultMiniRetrieval(unittest.TestCase):

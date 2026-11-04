@@ -107,6 +107,33 @@ class TestVaultMiniWalk(ExportCase):
         self.assertNotIn('"root": "source"', blob)
         self.assertNotIn('"root":"source"', blob)
 
+    def test_lean_bundle_fields(self):
+        state = self.root / "state"
+        write_index(MINI, state)
+        full = build_bundle(MINI, state)
+        lean = build_bundle(MINI, state, lean=True)
+        self.assertEqual(lean["nodes"], full["nodes"])
+        self.assertEqual(lean["hierarchies"], full["hierarchies"])
+        for node_id, context in full["contexts"].items():
+            slim = lean["contexts"][node_id]
+            self.assertEqual(slim["node"]["id"], node_id)
+            self.assertEqual([view["id"] for view in slim["parents"]], [view["id"] for view in context["parents"]])
+            for field in ("total", "returned", "truncated"):
+                self.assertEqual(slim["children"][field], context["children"][field])
+                self.assertEqual(slim["edges"][field], context["edges"][field])
+            self.assertEqual([view["id"] for view in slim["children"]["items"]],
+                             [view["id"] for view in context["children"]["items"]])
+            self.assertEqual(slim["edges"]["items"],
+                             [{key: edge[key] for key in ("id", "kind", "from", "to")}
+                              for edge in context["edges"]["items"]])
+            self.assertNotIn("siblings", slim)
+        # Cards keep their text; the registry is not copied once per concept.
+        kinds = {full["nodes"][node_id]["kind"] for node_id in lean["contents"]}
+        self.assertEqual(kinds, {"work", "gap", "transfer"})
+        for node_id, content in lean["contents"].items():
+            self.assertEqual(content, full["contents"][node_id])
+        self.assertLess(len(canonical_bytes(lean)), len(canonical_bytes(full)))
+
 
 class TestPaginationHonesty(ExportCase):
     def test_query_level_pagination_followed_to_completion(self):

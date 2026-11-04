@@ -126,7 +126,11 @@ class LocalFileProvider:
 
 
 class OpenAccessProvider:
-    """OA location via the OpenAlex metadata adapter (cache-first), then download."""
+    """OA location via the OpenAlex metadata adapter (cache-first), then download.
+
+    A request that names an arXiv id reads that preprint: its arXiv PDF is the
+    OA location, whether or not OpenAlex indexes the arXiv DOI.
+    """
 
     channel = "openaccess"
 
@@ -143,14 +147,17 @@ class OpenAccessProvider:
         if not ids:
             add_attempt(receipt, self.channel, "no external id to resolve")
             return receipt
-        try:
-            record = self._openalex.resolve(ids)
-        except ProviderError as err:
-            receipt["acquisition_status"] = "failed"
-            add_attempt(receipt, self.channel, "metadata: %s" % err.detail)
-            receipt["next_action"] = "retry with --live after network-acquisition authorization"
-            return receipt
-        oa_url = record.get("oa_url")
+        if ids.get("arxiv"):
+            oa_url = "https://arxiv.org/pdf/%s" % ids["arxiv"]
+        else:
+            try:
+                record = self._openalex.resolve(ids)
+            except ProviderError as err:
+                receipt["acquisition_status"] = "failed"
+                add_attempt(receipt, self.channel, "metadata: %s" % err.detail)
+                receipt["next_action"] = "retry with --live after network-acquisition authorization"
+                return receipt
+            oa_url = record.get("oa_url")
         if not oa_url:
             add_attempt(receipt, self.channel, "no open-access location")
             receipt["next_action"] = "try Zotero or a local file"

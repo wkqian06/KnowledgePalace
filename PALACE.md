@@ -9,10 +9,20 @@ operational thresholds. Private registries live in the configured Personal Vault
 | Slug | Name | Status | Seeded | Notes |
 |---|---|---|---|---|
 
-New domains enter via `/palace domain add <name>`: seeded from 1–2 review or
-representative papers, concept subtree proposed (reusing shared axes first),
-confirmed by the user, then written to the configured Vault. Palace performs no
-Git operation in the Vault.
+Domain criterion: papers written by one community that cite each other and
+share gap cards form a domain; a toolbox that several communities each use
+belongs on the shared method/pattern axes, never as a domain.
+
+New domains enter two ways, both judged by this criterion:
+
+- `/palace domain add <name>`: seeded from 1–2 review or representative papers,
+  concept subtree proposed (reusing shared axes first), confirmed by the user,
+  then written to the configured Vault.
+- Ingest: a paper that no registered domain holds opens its domain, inferred
+  from the paper and the library's holdings. The opening is reported with its
+  reasoning and logged as a Governance Decision (workflows/ingest.md).
+
+Palace performs no Git operation in the Vault.
 
 ## Concept axes (7)
 
@@ -141,7 +151,7 @@ code_usage: "<repo, stars/downloads, kind, YYYY-MM>" # dated snapshot, display-o
 
 | Parameter | Value |
 |---|---|
-| discover gate | ≥ 15 papers total AND ≥ 3 cross-domain papers (a cross-domain paper = its `domain:` array contains ≥ 1 registered slug outside the home domain's subtree; domains must be registered via `domain add` BEFORE such papers are ingested) |
+| discover gate | ≥ 15 papers total AND ≥ 3 cross-domain papers (a cross-domain paper = its `domain:` array contains ≥ 1 registered slug outside the home domain's subtree; a domain is registered, via `domain add` or at ingest, BEFORE its papers' cards are saved) |
 | concept promotion | candidate → canonical at ≥ 3 confirmed supporting papers that genuinely USE the concept, with evidence from distinct data or analyses, assessed under evidence rule 2. Baseline-only comparison does not count (see Concept conventions); dependent support keeps the row candidate with a note. |
 | new concept proposals | ≤ 5 per paper (linker) |
 | linker prefilter budget | 5–15 candidate cards per paper; INDEX-first, never full-vault reads |
@@ -173,4 +183,4 @@ code_usage: "<repo, stars/downloads, kind, YYYY-MM>" # dated snapshot, display-o
 - `concepts.md` grows unwieldy from multi-domain growth → propose per-axis file split (schema unchanged).
 - Orphan tags (card tags absent from the registry) found → repair proposal.
 - Deprecated slug still referenced by any card → migration proposal (`grep -l` impact list attached).
-- A registered domain's cards split into task-tag groups that rarely co-occur on one card, or a domain-axis root concept exists without a `domains.md` row → domain-partition proposal (candidate domains, the cards whose root tag would change, computed by `graph.identity.domain_partition_report`). Criterion: papers written by one community that cite each other and share gap cards form a domain; a toolbox that several communities each use belongs on the shared method/pattern axes, never as a domain.
+- A registered domain's cards split into task-tag groups that rarely co-occur on one card, or a domain-axis root concept exists without a `domains.md` row → domain-partition proposal (candidate domains, the cards whose root tag would change, computed by `graph.identity.domain_partition_report`), judged by the domain criterion under Domain registry schema.

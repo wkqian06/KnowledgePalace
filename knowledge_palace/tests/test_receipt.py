@@ -93,6 +93,13 @@ class TestMechanicalIdentity(unittest.TestCase):
         self.assertEqual(status, "verified")
         self.assertIn("DOI", evidence)
 
+    def test_arxiv_id_verifies(self):
+        request = new_request(ids={"arxiv": "2507.05658"})
+        for head in ("arXiv:2507.05658v2 [physics.ao-ph] 7 Jul 2025", "SOURCE: x\nARXIV: 2507.05658\n"):
+            self.assertEqual(resolve_identity(request, text_head=head)[0], "verified", head)
+        for other in ("arXiv:2507.056581", "arXiv:2507.05659"):
+            self.assertEqual(resolve_identity(request, text_head=other)[0], "unverified", other)
+
     def test_user_confirmation_is_recorded_with_provenance(self):
         request = new_request(
             user_confirmed_identity=True, confirmation_provenance="ingest batch 7"

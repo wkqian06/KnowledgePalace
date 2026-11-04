@@ -166,7 +166,7 @@ workspace/projects/<slug>/
 ├── materials/         # your drafts, data, figures, solicitations, reviewer comments
 ├── sources/           # project bibliography sources (Vault-first resolution)
 ├── requirements/      # solicitation notes for proposals
-├── outline/           # brief.json (evidence contract) · manuscript-analysis.md
+├── outline/           # brief.json (evidence contract) · manuscript-analysis.md · graph-<section>.html (editable argument graph)
 ├── sections/<name>/rNNN.md   # append-only revisions; `assembled` is reserved
 ├── reviews/           # confirmed review records
 ├── bibliography/
@@ -247,7 +247,7 @@ what each command is *for* and what it *writes*:
 
 | Command | What happens | Writes (after confirmation) |
 |---|---|---|
-| `/palace ingest [<paths\|dois\|slugs>...]` | match identity against the vault (a hit reuses the card) → acquire the best available material → read to the requested depth → card draft with verbatim Claims, Argument/Conditions, optional Analysis evidence and dated Reading notes → `save_paper` (refuses duplicates, keeps old Claims) → `ensure_index` once per batch. Abstract-only material yields a card that says so. | paper cards, INDEX rows, synthesis update items |
+| `/palace ingest [<paths\|dois\|slugs>...]` | match identity against the vault (a hit reuses the card) → acquire the best available material → read to the requested depth → place it in a domain, opening a new one when no registered domain holds the paper → card draft with verbatim Claims, Argument/Conditions, optional Analysis evidence and dated Reading notes → `save_paper` (refuses duplicates, keeps old Claims, checks new quotes verbatim against the cached text) → `ensure_index` once per batch. Abstract-only material yields a card that says so. | paper cards, INDEX rows, synthesis update items; for a new domain, its `domains.md` row, concept rows and Governance Decision |
 | `/palace init <topic> [n]` | build or extend a topic collection: domain add only if the domain is new → search via available providers or browsing → one bounded candidate selection → every selected paper is ingested | everything ingest writes |
 | `/palace expand <target> [--depth 1\|2] [--max-new N]` | follow references/related work from papers, a question or an evidence hole; scope-bound select/defer/reject; checkpoints resume without duplicates; selected papers are ingested | run record + everything ingest writes |
 | `/palace domain add <name>` · `list` | register a domain and its initial concepts (shared axes reused first) · list domains | `domains.md` row + concept rows |
@@ -282,7 +282,7 @@ evidence themselves. Discussion outcomes you want to keep go into the project's
 
 | Command | What happens |
 |---|---|
-| `/palace write <project\|materials> [<section>]` | manuscript analysis first (reused when still valid) → argument and paragraph roles → draft from selected evidence and your materials → one focused review, at most two automatic revisions, unresolved findings reported → append-only `rNNN.md` on confirmation. Direct materials need no project. Proposals use the same route with the solicitation as a registered material. A Results section without your data is placeholder-only. |
+| `/palace write <project\|materials> [<section>]` | you give the framing, motivation and design, however briefly → manuscript analysis (reused when still valid) → argument graph: light nodes and labelled links, one node per paragraph and a chain from opening to landing inside each → the text, written in one pass from the graph, selected evidence and your materials under the numbered writing rules and reviewed once against them before you see it → you receive the graph followed by the text, and revise by changing nodes or links → append-only `rNNN.md` on confirmation. Direct materials need no project. Proposals use the same route with the solicitation as a registered material. A Results section without your data is placeholder-only. |
 | `/palace polish <text\|file\|project>` | manuscript analysis first → decide whether the issue is wording, paragraph logic or the scientific claim → revise only the requested passage → check numbers, units, terms, citations, claim strength against the original. Substantive restructuring belongs to `write`. A scientific problem is reported, never polished over. |
 | `/palace draft intro <topic>` | `write` with section = introduction |
 | `/palace style ingest\|status\|crystallize` | 7-dimension feature cards from papers whose writing you liked (`liked_aspects` come from you, never guessed) → dual-axis profiles (`journal-<venue>` × `lang-<trait>`); rules become `stable` at support ≥3 with no open conflicts |

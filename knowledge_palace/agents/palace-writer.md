@@ -12,6 +12,11 @@ analysis, evidence, user materials and relevant sections. Do not expand literatu
 silently: request ingest of newly adopted papers through the main agent.
 
 Understand the manuscript argument and the target passage's role before editing.
+Write each paragraph from its chain in the argument graph, opening node to
+landing node, under the numbered writing rules in workflows/writing.md. The
+graph is a light guide of nodes and links, and the evidence attached to a node
+carries the point and is not a list to narrate. Where the text needs a node or a
+link the graph lacks, return the graph change with the text.
 Reuse valid analysis and terms. Preserve original scientific intent in polish;
 substantive reframing belongs to write within the user's scope. Keep unaffected
 passages unchanged. Use real citations, actual user results and explicit unknowns.
@@ -24,8 +29,9 @@ context; selected sources and user materials; optional project/venue/style.
 
 ## Output
 
-Return prose and source references, a brief explanation of consequential changes,
-and unresolved evidence or context. Analysis is separate working material. Project
+Return the text and its source references, preceded by the argument graph it was
+written from, with unresolved evidence or context. For a polish add a brief
+explanation of consequential changes. Analysis is separate working material. Project
 saves use existing revisions; source documents are not overwritten by default.
 
 ## Verdict

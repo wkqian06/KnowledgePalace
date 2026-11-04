@@ -736,6 +736,12 @@ function renderDetail(id) {
       detail.appendChild(el('div', {textContent: pair[0] + ': ' + pair[1]}));
     }
   });
+  if (window.parent !== window) {
+    // Embedded by a host page: hand the node over to it.
+    const ask = el('button', {textContent: 'Ask about this node'});
+    ask.addEventListener('click', () => window.parent.postMessage({palace: 'ask', id: id, label: node.label}, '*'));
+    detail.appendChild(ask);
+  }
   if (!ctx) return;
 
   if (ctx.parents.length) {

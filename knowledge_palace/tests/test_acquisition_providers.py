@@ -146,6 +146,19 @@ class TestOpenAccessProvider(AcquisitionCase):
         self.assertTrue(receipt["staged_path"].endswith(".pdf"))
         self.assertEqual(receipt["text_status"], "not_attempted")
 
+    def test_arxiv_pdf_route(self):
+        stub = RoutedStub({"arxiv.org/pdf/2101.00001": PDF_BYTES})
+        provider = OpenAccessProvider(fetch=stub, cache=BibliographicCache(self.state))
+        receipt = provider.acquire(
+            new_request(work_slug="beta-2021-foxtrot", ids={"arxiv": "2101.00001"}), self.state
+        )
+        self.assertEqual(receipt["acquisition_status"], "acquired")
+        self.assertEqual(receipt["locator"], "https://arxiv.org/pdf/2101.00001")
+        self.assertEqual(stub.calls, ["https://arxiv.org/pdf/2101.00001"])
+        gated = OpenAccessProvider(fetch=None).acquire(
+            new_request(ids={"arxiv": "2101.00001"}), self.state)
+        self.assertIn("network-acquisition authorization", gated["next_action"])
+
     def test_cache_only_run_is_gated_not_fetched(self):
         provider = OpenAccessProvider(fetch=None, cache=BibliographicCache(self.state))
         receipt = provider.acquire(new_request(ids={"doi": DOI}), self.state)

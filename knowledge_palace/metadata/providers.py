@@ -145,9 +145,12 @@ class OpenAlexProvider(LiteratureProvider):
         return self._map(payload, fetched_at)
 
     def search(self, query, limit=10):
+        # One URL parameter: '&', ':' and non-ASCII text must not split or break it.
+        from urllib.parse import quote_plus
+
         url = "%s/works?search=%s&per-page=%d" % (
             self.BASE,
-            query.replace(" ", "+"),
+            quote_plus(query),
             max(1, min(int(limit), 50)),
         )
         payload, fetched_at = self._get("search", url)
@@ -206,9 +209,11 @@ class CrossrefProvider(LiteratureProvider):
         return self._map(payload["message"], fetched_at)
 
     def search(self, query, limit=10):
+        from urllib.parse import quote_plus
+
         url = "%s/works?query=%s&rows=%d" % (
             self.BASE,
-            query.replace(" ", "+"),
+            quote_plus(query),
             max(1, min(int(limit), 50)),
         )
         payload, fetched_at = self._get("search", url)
@@ -271,9 +276,11 @@ class SemanticScholarProvider(LiteratureProvider):
         return self._map(payload, fetched_at)
 
     def search(self, query, limit=10):
+        from urllib.parse import quote_plus
+
         url = "%s/paper/search?query=%s&limit=%d&fields=%s" % (
             self.BASE,
-            query.replace(" ", "+"),
+            quote_plus(query),
             max(1, min(int(limit), 50)),
             self.FIELDS,
         )
@@ -363,9 +370,11 @@ class ArxivProvider(LiteratureProvider):
         return self._map(entries[0], fetched_at)
 
     def search(self, query, limit=10):
+        from urllib.parse import quote_plus
+
         url = "%s?search_query=all:%s&max_results=%d" % (
             self.BASE,
-            query.replace(" ", "+"),
+            quote_plus(query),
             max(1, min(int(limit), 50)),
         )
         payload, fetched_at = self._get("search", url)

@@ -1,8 +1,10 @@
 """Bounded evidence retrieval and source-linked research progress views."""
 
+import re
+from collections import Counter
 from itertools import zip_longest
 
-from .prefilter import candidate_matches, query_terms, _matches
+from .prefilter import CANDIDATE_CAP, candidate_matches, match_rank
 from ..semantic.evidence_helpers import dependencies, RELATIONS
 from ..semantic.corridors import _domain_resolver, SHARED_AXES
 
@@ -10,18 +12,16 @@ from ..semantic.corridors import _domain_resolver, SHARED_AXES
 def research_context(payload, topic, alternatives=(), bridge_stopwords=()):
     """Select current understanding and its evidence across all requested queries."""
     nodes = payload["nodes"]
-    pools, attempts, terms, match_reasons = [], [], [], {}
+    pools, attempts, match_reasons = [], [], {}
     for query in list(dict.fromkeys([topic] + list(alternatives)[:2])):
         matches = candidate_matches(payload, query)
         for nid, why in matches.items():
             match_reasons.setdefault(nid, set()).update(why)
-        ordered = sorted(matches, key=lambda nid: (
-            not any(r.startswith(("term:", "claim:")) for r in matches[nid]),
-            -len(matches[nid]), nid))
-        pools.append(ordered)
+        pools.append(sorted(matches, key=lambda nid: match_rank(nid, matches[nid])))
         attempts.append({"query": query, "hits": len(matches)})
-        terms.extend(query_terms(payload, query))
-    matched_ids = set().union(*(set(pool) for pool in pools))
+    # A synthesis is current for this question when its evidence is among the leading
+    # matches; on a real library the whole match pool covers most of the Vault.
+    leading = set().union(*(set(pool[:CANDIDATE_CAP]) for pool in pools))
     latest = {}
     for nid, node in nodes.items():
         attrs = node.get("attrs", {})
@@ -37,7 +37,7 @@ def research_context(payload, topic, alternatives=(), bridge_stopwords=()):
         node = nodes[nid]
         refs = {ref for entry in node["attrs"]["synthesis"] for ref in dependencies(entry)}
         owners = {"work:" + ref[6:].split("#")[0] for ref in refs if ref.startswith("claim:")}
-        if any(_matches(term, nid, node) for term in terms) or (refs | owners) & matched_ids:
+        if (refs | owners) & leading:
             briefs.append(nid)
     briefs.sort(key=lambda nid: (nodes[nid]["attrs"].get("date", ""), nid), reverse=True)
     selected = briefs[:3]
@@ -130,6 +130,80 @@ def cross_domain_candidates(payload, selected, stopwords=()):
             if len(result) == 3:
                 return result
     return result
+
+
+def bounded_context(context, claims_per_work=3):
+    """Reduce a research context to a reading plan that fits a small context window.
+
+    Every candidate keeps its card path. Each work quotes at most
+    ``claims_per_work`` Claims verbatim: Claims the query matched come first, then
+    Claims with recorded relations, then the Claims its argument cites. Relations
+    become triples; a synthesis keeps its statements and Claim references, and a
+    brief keeps only the entries that depend on a selected card. A retracted Claim
+    is not evidence and is neither quoted nor counted. The cards hold everything
+    left out.
+    """
+    judgment = ("id", "statement", "claims")
+    claims = context["claims"]
+    related = {edge["from"] for edge in context["relations"]}
+    works, quoted = {}, set()
+    for row in context["candidates"]:
+        work = context["works"].get(row["node_id"])
+        if work is None:
+            continue
+        prefix = "claim:%s#" % row["node_id"][5:]
+        own = sorted((cid for cid in claims
+                      if cid.startswith(prefix) and not claims[cid]["attrs"].get("retracted")),
+                     key=lambda cid: int(cid[len(prefix) + 1:]))
+        # A Claim match reads "claim:<claim id> (term:<term>)", and the id carries its own "claim:".
+        hits = Counter(reason[6:].split(" ")[0] for reason in row["why"]
+                       if reason.startswith("claim:" + prefix))
+        cited = [prefix + entry["claim"] for entry in work["attrs"].get("argument", [])]
+        order = dict.fromkeys(sorted((cid for cid in own if cid in hits), key=lambda cid: -hits[cid])
+                              + [cid for cid in own if cid in related] + cited + own)
+        chosen = [cid for cid in order if cid in own][:claims_per_work]
+        quoted.update(chosen)
+        works[row["node_id"]] = {
+            "title": work["label"], "year": work["attrs"].get("year"),
+            "read_depth": work["attrs"].get("read_depth"), "claims_total": len(own),
+            "claims": [{"id": cid[len(prefix):], "quote": claims[cid]["attrs"]["quote"],
+                        "anchor": claims[cid]["attrs"]["anchor"]} for cid in chosen],
+        }
+    gaps = {}
+    for nid, node in context["gaps"].items():
+        statement = re.search(r"## Statement\s+(.*?)(?=\n## |\Z)", node["attrs"]["text"], re.S)
+        gaps[nid] = {"path": node["canonical_ref"]["path"], "status": node["attrs"]["status"],
+                     "type": node["attrs"]["type"],
+                     "statement": statement.group(1).strip() if statement else "",
+                     "synthesis": [{key: entry[key] for key in judgment}
+                                   for entry in node["attrs"].get("synthesis", [])]}
+    selected = set(works) | set(gaps)
+    syntheses = {}
+    for nid, node in context["current_syntheses"].items():
+        entries = [{key: entry[key] for key in judgment} for entry in node["attrs"]["synthesis"]
+                   if any(ref in selected or "work:" + ref[6:].split("#")[0] in selected
+                          for ref in dependencies(entry))]
+        if entries:
+            syntheses[nid] = {"path": node["canonical_ref"]["path"],
+                              "date": node["attrs"].get("date", ""), "synthesis": entries}
+    return {
+        "topic": context["topic"], "attempts": context["attempts"], "coverage": context["coverage"],
+        "candidates": [{
+            "node_id": row["node_id"], "path": row["canonical_ref"]["path"],
+            "why": sorted(dict.fromkeys(reason.split(" (")[0] for reason in row["why"]
+                                        if not reason.startswith("claim:")),
+                          key=lambda reason: (not reason.startswith("term:"), reason))[:4],
+        } for row in context["candidates"]],
+        "works": works, "gaps": gaps, "current_syntheses": syntheses,
+        "relations": [{"from": edge["from"], "kind": edge["kind"], "to": edge["to"]}
+                      for edge in context["relations"] if edge["from"] in quoted],
+        "related_gaps": [{"node_id": row["node_id"], "path": row["canonical_ref"]["path"]}
+                         for row in context["related_gaps"]],
+        "unread_dependencies": context["unread_dependencies"],
+        "cross_domain": [{"node_id": row["node_id"], "path": row["canonical_ref"]["path"],
+                          "via": row["via"], "from": row["from"], "status": row["status"]}
+                         for row in context["cross_domain"]],
+    }
 
 
 def render_progress(context):

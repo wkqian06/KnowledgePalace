@@ -46,8 +46,14 @@ def _walk_pages(call):
         cursor = page["next_cursor"]
 
 
-def build_bundle(vault, state, page_limit=WALK_PAGE_LIMIT):
-    """Full read-only walk → canonical JSON payload (dict, not bytes)."""
+def build_bundle(vault, state, page_limit=WALK_PAGE_LIMIT, lean=False):
+    """Full read-only walk → canonical JSON payload (dict, not bytes).
+
+    ``lean`` keeps what the viewer script reads and nothing else. A context
+    carries ids only: the script takes labels from ``nodes`` and never reads
+    siblings. An anchored node has no content entry: its content is the whole
+    shared file (the concept registry, once per concept) or a Claim's own attrs.
+    """
     port = GraphQueryPort(vault, state, page_limit=page_limit)
 
     hierarchies_response = _unwrap(port.list_hierarchies())
@@ -110,7 +116,13 @@ def build_bundle(vault, state, page_limit=WALK_PAGE_LIMIT):
                 items.extend(page["items"])
             ctx[field] = {"total": page["total"], "returned": len(items),
                           "items": items, "truncated": False, "next_cursor": None}
-        contexts[node_id] = ctx
+        contexts[node_id] = ctx if not lean else {
+            "node": {"id": node_id},
+            "parents": [{"id": view["id"]} for view in ctx["parents"]],
+            "children": dict(ctx["children"], items=[{"id": view["id"]} for view in ctx["children"]["items"]]),
+            "edges": dict(ctx["edges"], items=[{key: edge[key] for key in ("id", "kind", "from", "to")}
+                                               for edge in ctx["edges"]["items"]]),
+        }
         nodes.setdefault(node_id, ctx["node"])  # covers edge-only-reached nodes
         for view in ctx["parents"]:
             record_node(view)
@@ -125,6 +137,8 @@ def build_bundle(vault, state, page_limit=WALK_PAGE_LIMIT):
         for edge in ctx["edges"]["items"]:
             schedule(edge["from"])
             schedule(edge["to"])
+        if lean and ctx["node"]["canonical_ref"]["anchor"]:
+            continue
         content = _unwrap(port.get_content(node_id))
         contents[node_id] = {
             "canonical_ref": content["canonical_ref"],

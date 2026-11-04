@@ -7,17 +7,20 @@ Claim eligibility requires acquisition ``acquired`` AND identity ``verified``
 AND text ``ready`` — no axis can compensate for another.
 
 Identity becomes ``verified`` ONLY mechanically: an expected-sha256 match, a
-requested DOI found in the text head, or an explicit user confirmation flag
-whose provenance is recorded. Everything else stays ``unverified``; a hash
+requested DOI or arXiv id found in the text head, or an explicit user
+confirmation flag whose provenance is recorded. Everything else stays ``unverified``; a hash
 contradiction is ``mismatch`` and quarantines the staged file.
 """
 
 import hashlib
+import re
 
 ACQUISITION_STATUSES = ("acquired", "not_found", "auth_required", "manual_action", "failed")
 IDENTITY_STATUSES = ("verified", "mismatch", "unverified")
 TEXT_STATUSES = ("ready", "needs_ocr", "extraction_failed", "not_attempted")
-_TEXT_HEAD_CHARS = 4000
+# The text head spans a dense first page: journal DOI footers and the arXiv
+# margin stamp are extracted after the page body.
+_TEXT_HEAD_CHARS = 8000
 
 
 def new_request(
@@ -73,9 +76,14 @@ def resolve_identity(request, staged_bytes=None, text_head=None):
         if actual == expected.lower():
             return "verified", "sha256 matches expected"
         return "mismatch", "sha256 %s… != expected %s…" % (actual[:12], expected[:12])
-    doi = (request.get("ids") or {}).get("doi")
-    if doi and text_head and doi.lower() in text_head[:_TEXT_HEAD_CHARS].lower():
+    ids = request.get("ids") or {}
+    head = (text_head or "")[:_TEXT_HEAD_CHARS].lower()
+    if ids.get("doi") and ids["doi"].lower() in head:
         return "verified", "requested DOI found in text head"
+    # arXiv stamps every PDF margin with "arXiv:<id>vN"; cached HTML text
+    # carries an "ARXIV: <id>" header. A longer id is a different paper.
+    if ids.get("arxiv") and re.search(r"arxiv:\s?%s(?!\d)" % re.escape(ids["arxiv"].lower()), head):
+        return "verified", "requested arXiv id found in text head"
     if request.get("user_confirmed_identity"):
         return "verified", "user confirmation (%s)" % (
             request.get("confirmation_provenance") or "packaged confirmation"

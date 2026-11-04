@@ -196,6 +196,25 @@ class TestSavePaper(TransactionCase):
             save_paper(self.vault, invented, source_dir=self.source)
         self.assertEqual(vault_fingerprint(self.vault), before)
 
+    def test_new_claim_quote_must_be_in_the_cached_source(self):
+        text = (self.vault / "papers" / "alpha-2020-echo.md").read_text(encoding="utf-8")
+        # the source cannot be consulted, so new quotes go in unchecked and say so
+        self.assertFalse(save_paper(self.vault, text)["quotes_checked"])
+        (self.source / "fulltext" / "alpha-2020-echo.txt").write_text(
+            "Body. Gain holds across\nrooms. Filler between. Residual echo fades after tuning.",
+            encoding="utf-8")
+        added = text.replace(
+            "## Study profile", '- C3 [concept-echo]: "%s" — §6 / p.10\n\n## Study profile')
+        before = vault_fingerprint(self.vault)
+        with self.assertRaises(ValueError) as ctx:
+            save_paper(self.vault, added % "Gain doubles across rooms.", source_dir=self.source)
+        self.assertIn("C3's quote is not verbatim", str(ctx.exception))
+        self.assertEqual(vault_fingerprint(self.vault), before)
+        # an elided quote is the paper's when each piece is
+        elided = added % "Gain holds across rooms. … Residual echo fades after tuning."
+        result = save_paper(self.vault, elided, source_dir=self.source)
+        self.assertEqual((result["new_claims"], result["quotes_checked"]), (1, True))
+
     def test_ocr_text_cannot_authorize_a_quote_repair(self):
         text = (self.vault / "papers" / "alpha-2020-echo.md").read_text(encoding="utf-8")
         save_paper(self.vault, text)

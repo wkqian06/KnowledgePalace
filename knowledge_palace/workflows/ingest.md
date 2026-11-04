@@ -25,6 +25,32 @@ card. Search candidates that were not selected remain discovery records.
    Record author-stated remaining questions separately from system inferences.
    Missing material remains missing, without filling template rows by invention.
 
+## Place in a domain
+
+Every card carries the root slug of a registered domain. Infer it from the paper
+and from what the library holds: the question the paper asks and the literature
+it cites and answers, read against each registered domain's scope in
+`domains.md`, its concept subtree in `concepts.md`, and the papers and Gaps filed
+under it (INDEX first). The domain criterion is in PALACE.md.
+
+When a registered domain holds the paper, tag that root. When the paper is a
+toolbox, or brings one to a question a registered domain asks, tag the domain
+whose question it serves and put the toolbox on the shared axes. When the paper
+belongs to a research community that no registered domain covers, open that
+domain before saving the card:
+
+1. Scope the domain to that community, so that the literature the paper cites
+   and answers falls inside it.
+2. Write the `domains.md` row, with the scope and what separates it from
+   neighbouring domains in Notes, and the root concept row on the domain axis of
+   `concepts.md`, with no Parents. The paper's new concepts hang under that root
+   within the per-paper limit; shared-axis concepts are reused first, and no
+   `Parents` edge joins two domain subtrees.
+3. Append a Governance Decision to `governance/decisions.md`: the seed paper,
+   the reasoning from the paper and the holdings, and the affected objects.
+
+Papers of one batch that need the same new domain open it once.
+
 ## Save and connect
 
 Use the paper template, omitting sections with no supported content. An optional
@@ -38,17 +64,22 @@ when needed. A misread quote takes an appended correction and keeps its wording.
 A quote whose wording or source is in doubt is checked against the cached source
 before deciding: repair the wording in place when it drifted from the source, fix
 the anchor when the quote sits elsewhere in this paper, retract the Claim when it
-is not this paper's, and repoint any table row that cited it. Pass `source_dir`
-to save_paper for a repair; it refuses wording the cached text does not carry.
+is not this paper's, and repoint any table row that cited it. A repair needs
+`source_dir`; save_paper refuses wording the cached text does not carry.
 Use available canonical concepts; do not invent a Gap just to populate the card.
 Link to relevant existing Gaps when justified and update their current synthesis
 only where the evidence changes it.
 
 The main agent saves the reviewed paper through
-`acquisition.transaction.save_paper(vault_dir, card_text)`. It refuses a duplicate
-identity under another slug, keeps every existing Claim's quote, refuses a table
-row that cites a retracted Claim, checks that reading depth matches source
-coverage, and updates the paper INDEX. After the
+`acquisition.transaction.save_paper(vault_dir, card_text, source_dir)`. It refuses
+a duplicate identity under another slug, keeps every existing Claim's quote, refuses
+a table row that cites a retracted Claim, checks that reading depth matches source
+coverage, and updates the paper INDEX. Always pass `source_dir`: each new Claim's
+quote must then be verbatim in the paper's cached text, an elided quote piece by
+piece. A paper with no text cache, or an OCR one, is saved with its new quotes
+unchecked, and the result's `quotes_checked` is false; report those cards. When a
+correct quote is refused, the cache is damaged: re-extract it in reading order
+rather than rewording the quote. After the
 whole batch and any related Gap edits, call
 `graph.builder.ensure_index(vault_dir, state_dir, workspace_dir)` once; without the
 workspace root, project-level impacts are not recorded. Affected judgments are then
@@ -56,9 +87,10 @@ read with `python -m knowledge_palace.interaction.research updates`, not from th
 return value. Subagents return reading drafts and never write authoritative files.
 
 An explicit ingest request or an approved collection scope includes the selected
-papers' cards and source preservation. Do not ask the user to select them again.
-Ask only about a genuinely unresolved identity or scope choice. Report saved
-paths, reading depth, unavailable material and what the reading added.
+papers' cards, source preservation and a domain those papers open. Do not ask the
+user to select them again. Ask only about a genuinely unresolved identity or
+scope choice. Report saved paths, reading depth, unavailable material, a domain
+opened with its scope and reasoning, and what the reading added.
 
 A temporary ProjectSource is a discovery locator. When a paper is adopted, save
 its card, rebuild the index, and run `interaction.project_source.resolve` again

@@ -117,9 +117,12 @@ the evidence view for `/palace brief progress <topic>`. `ask`, `gaps` and `ideas
 produce the same structured research context for the analyst. `--alternative`
 allows at most two explicit query reformulations; all supplied reformulations
 are searched even when the first match pool is full. The combined reading set
-is capped at 15 cards, including current briefs. Selection uses the latest
-synthesis per topic/view, a representative from each query, interleaved Claim
-dependencies and remaining query matches. A matched Gap also supplies source
+is capped at 15 cards, including current briefs. Matches are ordered by the
+number of query terms they cover; a term carried by a card's own label or a
+concept tag counts before a term found in a Claim, and corridor reach never
+outranks a direct match. Selection uses the latest synthesis per topic/view
+whose evidence is among the leading matches, a representative from each query,
+interleaved Claim dependencies and remaining query matches. A matched Gap also supplies source
 papers. `--json` exposes candidate locators, full anchored Claims, argument
 roles, conditions and evidence relations. Read candidate cards via the port;
 for decisive or ambiguous evidence, read the card's `local` Source Cache file
