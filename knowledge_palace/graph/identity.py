@@ -264,7 +264,7 @@ def load_vault_identity(vault):
         "works": {},
         "claims": {},
         "gaps": {},
-        "transfers": {},
+        "bridges": {},
         "briefs": {},
         "registry": load_registry(vault / "concepts.md", problems),
         "domains": load_domains(vault / "domains.md", problems),
@@ -339,23 +339,23 @@ def load_vault_identity(vault):
             "path": "gaps/" + path.name,
         }
 
-    for path in _card_files(vault / "transfers"):
-        origin = "transfers/" + path.name
+    for path in _card_files(vault / "bridges"):
+        origin = "bridges/" + path.name
         fm_lines, body, errs = split_frontmatter(path.read_text(encoding="utf-8"), origin)
         problems.extend(errs)
         fm, fm_problems = parse_frontmatter(fm_lines, origin)
         problems.extend(fm_problems)
         tables, errors = read_tables(body, origin)
         problems.extend(errors)
-        identity["transfers"][path.stem] = {
+        identity["bridges"][path.stem] = {
             "synthesis": tables["Synthesis"],
-            "a": fm.get("a", ""),
-            "c": fm.get("c", ""),
-            "bridges": _as_list(fm.get("bridges"), "bridges", origin, problems),
+            "from": fm.get("from", ""),
+            "to": fm.get("to", ""),
+            "via": _as_list(fm.get("via"), "via", origin, problems),
             "gaps": _as_list(fm.get("gaps"), "gaps", origin, problems),
             "papers": _as_list(fm.get("papers"), "papers", origin, problems),
             "status": fm.get("status", ""),
-            "path": "transfers/" + path.name,
+            "path": "bridges/" + path.name,
         }
 
     for path in _card_files(vault / "briefs"):

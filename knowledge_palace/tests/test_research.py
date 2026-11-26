@@ -116,10 +116,10 @@ class TestResearch(unittest.TestCase):
         other.write_text(other.read_text(encoding="utf-8") + ARGUMENT.replace(
             "partially_addresses", "disputes"), encoding="utf-8")
         after = build_payload(self.vault)
-        updates = evidence_changes(before, after)
-        self.assertTrue(updates[0]["affected"])
-        self.assertTrue(any("question" in s for s in updates[0]["suggestions"]))
-        self.assertFalse(evidence_changes(after, after)[0]["affected"])
+        brief = next(row for row in evidence_changes(before, after) if row["node_id"].startswith("brief:"))
+        self.assertTrue(brief["affected"])
+        self.assertTrue(any("question" in s for s in brief["suggestions"]))
+        self.assertFalse(any(row["affected"] for row in evidence_changes(after, after)))
 
     def test_domain_alias_reaches_domain_tagged_work(self):
         registry = self.vault / "concepts.md"

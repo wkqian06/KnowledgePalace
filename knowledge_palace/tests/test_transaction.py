@@ -143,6 +143,16 @@ class TestSavePaper(TransactionCase):
         index = (self.vault / "papers" / "INDEX.md").read_text(encoding="utf-8")
         self.assertIn("| delta-2024-drift |", index)
 
+    def test_local_acquisition_to_card_and_index_in_isolation(self):
+        receipt = self.acquire()
+        self.assertEqual(promote(receipt, self.state, self.source)['status'], 'promoted')
+        before = (self.vault / 'papers' / 'alpha-2020-echo.md').read_text(encoding='utf-8')
+        result = save_paper(self.vault, before, self.source)
+        self.assertIn(result['status'], ('updated', 'unchanged'))
+        self.assertEqual((self.vault / 'papers' / 'alpha-2020-echo.md').read_text(encoding='utf-8'), before)
+        self.assertTrue((self.source / 'fulltext' / 'alpha-2020-echo.pdf').is_file())
+        self.assertIn('| alpha-2020-echo |', (self.vault / 'papers' / 'INDEX.md').read_text(encoding='utf-8'))
+
     def test_duplicate_identity_under_another_slug_is_refused(self):
         same_doi = NEW_CARD.replace("fixture.delta2024", "fixture.alpha2020")
         with self.assertRaises(ValueError) as ctx:

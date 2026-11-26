@@ -31,10 +31,12 @@ KnowledgePalace 把"程序"和"数据"彻底分开。本 Git 仓库（叫 Framew
 
 1. **主代理**——就是你对话的那个 Claude Code / Codex。它按任务读取
    `knowledge_palace/workflows/` 下对应的工作流，找目录、读有界证据、
-   需要时把阅读或起草交给专门角色，审核关键证据，并亲手执行每一次
-   授权写入。**只有它能写。**
-2. **九个可选的只读专门角色**——提取、关联、侦察、审计、分析、文风、
-   扩展评审、写作、评审。用得上才调用，不是固定流水线；它们只能读文件
+   审核关键证据，需要时把长论文阅读、独立复查或文风整理交给子代理，
+   并亲手执行每一次授权写入。**只有它能写。**
+2. **四个可选的只读子代理**——提取（读论文）、审计（核对出处）、评审
+   （审稿）和文风（整理文风）。它们做的步骤放在独立的上下文里更好：长论文
+   或几篇并行的阅读、独立复查、成批的文风阅读。用得上才调用，不是固定
+   流水线；没有它们时，主代理按同一份定义自己做。它们只能读文件
    和搜索，拿到的是主代理给的绝对路径和有界阅读范围，写不了任何东西。
 3. **一堆确定性 Python 工具**——配置解析、身份匹配、论文卡保存、建图
    索引、刷新书目、导出 viewer 等等。这些环节没有 AI 参与，就是普通
@@ -63,13 +65,13 @@ KnowledgePalace/
 ├── .palace.example.toml       # 配置模板（复制成 .palace.toml 用，不进 Git）
 ├── .claude/                   # Claude Code 的接入层
 │   ├── skills/palace/SKILL.md    # 入口：把 /palace 命令转到共享内核
-│   └── agents/palace-*.md                  # 9 个子代理的接入配置（只给读权限）
+│   └── agents/palace-*.md                  # 4 个子代理的接入配置（只给读权限）
 ├── .agents/ + .codex/         # Codex 的接入层（结构相同）
 └── knowledge_palace/          # 共享内核（跨平台，两个运行时共用）
     ├── protocol/              # 规则正文 · 命令索引 · 证据表契约 · 查询接口契约
     ├── workflows/             # 工作流：搜集 · 阅读入库 · 讨论 · 论文分析 · 写作/润色 · 可行性
-    ├── agents/                # 9 份可选专门角色的定义
-    ├── templates/             # 论文/缺口/迁移/文风/索引/扩展记录/项目研究笔记模板
+    ├── agents/                # 4 份可选子代理的定义
+    ├── templates/             # 论文/缺口/桥接/文风/索引/扩展记录/项目研究笔记模板
     ├── tools/                 # 配置解析
     ├── graph/                 # 图索引：身份识别 · 建索引 · 查询接口
     ├── metadata/              # 学术数据源对接 + 缓存 + 影响力 + 书目刷新
@@ -82,7 +84,7 @@ KnowledgePalace/
 ```
 
 记住一个分工：`protocol/` 规定"必须守什么"，`workflows/` 规定"一项任务
-怎么跑"，`agents/` 规定"专门角色能起草什么"，Python 包实现"不需要 AI 的
+怎么跑"，`agents/` 规定"子代理能交回什么"，Python 包实现"不需要 AI 的
 那部分"，接入层只做转发——规则原文只有一份，谁也不许复制一份自己改。
 
 ## 3. 你的四个数据目录
@@ -101,7 +103,7 @@ vault/
 ├── concepts.md                # 概念注册表：7 个轴，受控词表
 ├── papers/    INDEX.md + <一作>-<年份>-<标题词>.md     # 论文卡
 ├── gaps/      INDEX.md + gap-<slug>.md                 # 缺口卡
-├── transfers/ transfer-<slug>.md                       # 迁移卡
+├── bridges/   bridge-<slug>.md                         # 桥接卡
 ├── briefs/    <日期>-<视图>.md      # 各种简报——只是快照，不算证据
 ├── styles/    bank/ + profiles/     # 文风特征卡和文风档案
 ├── expansions/<run-id>.md           # 文献扩展的运行记录
@@ -110,7 +112,7 @@ vault/
 
 - **论文卡**：头部是元数据（引用数带抓取日期、权重档带推导过程、7 个
   概念轴标签、和哪些缺口有关系等），正文是摘要 / 论断（原文引句 +
-  出处）/ 局限与缺口 / 迁移备注。全文 PDF 不放这里，卡片里只存一个
+  出处）/ 局限与缺口 / 桥接备注。全文 PDF 不放这里，卡片里只存一个
   指向 `source_dir` 的相对路径。
 - **缺口卡**：状态（开放/部分解决/有争议/被重新表述/已关闭）、一张
   关系表（哪篇论文、什么关系、什么权重、证据是哪句话）、每次改状态
@@ -176,7 +178,7 @@ workspace/projects/<项目slug>/
 （问题模式）、`function`（功能）、`method`（方法）、`metric`（指标）、
 `failure-mode`（失效模式）全领域共享。
 
-跨领域的联系只有三种合法形式：共享轴上挂同一个概念、迁移卡、缺口卡的
+跨领域的联系只有三种合法形式：共享轴上挂同一个概念、桥接卡、缺口卡的
 `related:` 字段。**禁止**让一个领域的概念当另一个领域概念的上级——
 领域之间只有桥，没有上下级。
 
@@ -205,7 +207,7 @@ Claim/Gap 依赖。索引维护产生受影响综合的审核提示。
 |---|---|
 | `[C:slug]` | 有论文原话支持——去那张卡就能查到引句和出处 |
 | `[S]` | 综合或推断；写明依据的卡片（单张卡也可以） |
-| `[H]` | 待验证的假设；有迁移卡就引用，没有也不为凑标签去造 |
+| `[H]` | 待验证的假设；有桥接卡就引用，没有也不为凑标签去造 |
 | 背景 / 用户 | 通用背景解释或你自己的观察，如实标明 |
 
 需要时让 auditor 复查：`[C]` 查无出处、或者把综合与假设伪装成论文原话，
@@ -238,19 +240,18 @@ viewer、问答预筛、新颖性评估全都走这个接口，谁也不直接�
 
 | 命令 | 你得到什么 |
 |---|---|
-| `/palace status` | 库存统计（论文/缺口/迁移/概念/领域数）+ 一致性检查（索引和文件对不对得上、有没有野标签） |
+| `/palace status` | 库存统计（论文/缺口/桥接卡/概念/领域数）+ 一致性检查（索引和文件对不对得上、有没有野标签） |
 | `/palace brief onboard [<领域>]` | 领域入门：概念地图、核心词表、5–8 篇推荐阅读顺序 |
 | `/palace brief map <概念>` | 一个概念的方法演进时间线、已确立的结论（带背景）、争议双方并列 |
 | `/palace brief progress <主题>` | 问题演进、已有推进、争议、剩余子问题和证据覆盖 |
 | `/palace brief gaps [<领域>]` | 开放问题排行：谁试过、为什么没解决、还剩什么子问题 |
-| `/palace brief ideas [<领域>]` | 研究机会卡：缺口 × 迁移 → 假设、依据、风险、最小验证实验 |
-| `/palace brief transfers [<领域>]` | 迁移候选现状一览 |
-| `/palace brief bridges [<领域A> <领域B>]` | 两个领域之间的联系报告；不给参数就出全领域交叉矩阵 |
+| `/palace brief ideas [<领域>]` | 研究机会卡：缺口 × 桥接 → 假设、依据、风险、最小验证实验 |
+| `/palace brief bridges [<领域A> <领域B>]` | 桥接卡现状和两个领域之间的联系报告；不给参数就出全领域交叉矩阵 |
 | `/palace ask <问题>` | 解释、比较或接续讨论（细节见 §6）：有文献支持的话引用 Claim，背景解释和假设如实标明；需要时搜集并入库新文献再接着答 |
 | `/palace research <项目>` | 项目研究笔记：问题、工作定义、决策、约束、有材料来源的观察；你要求保留讨论时更新 |
 | `/palace updates` · `updates resolve <节点> <条目>` | 索引维护后证据变化、需要复核的判断 · 记录你的复核结论（retain / revise / withdraw） |
 | `/palace feasibility <想法\|文件\|项目>` | 可执行 / 满足明确条件后可执行 / 需调整方案 / 目前无法判断，附决定性条件和最小验证试验；科学可辨识性与执行可行性分开判断 |
-| `/palace discover [<目标>]` | 最多 5 个跨领域迁移候选，每个都有 ≥2 个实质性桥接概念、双边证据、一个先手验证实验 |
+| `/palace discover [<目标>]` | 最多 5 个跨领域桥接候选，每个都有 ≥2 个实质性共享概念、双边证据、一个先手验证实验 |
 | `/palace idea refine <文本\|文件>` | 想法评估：支持/反对/未知证据并列、最像的前人工作、证伪条件 + 最小实验；只评"相对这个库"的新颖性 |
 
 简报、存档的问答、想法评估在你确认后存到 `briefs/<日期>-….md`；想要独立
@@ -280,16 +281,21 @@ viewer、问答预筛、新颖性评估全都走这个接口，谁也不直接�
 `/palace ask` 按 `knowledge_palace/workflows/discussion.md` 走：
 
 1. 从你的问题、你的定义、项目里已有的决策和你给的材料出发；不要求先
-   有缺口卡或迁移卡。
+   有缺口卡或桥接卡。
 2. 判断问题需要什么：背景解释、论文证据、跨论文比较、暂定解释，还是
    一个研究决策。
 3. 需要库内证据时运行
-   `python3 -m knowledge_palace.interaction.research ask "<主题>" --json`，
-   得到有界上下文（≤15 个候选、Claim、关系、当前综合、待复核项）；整个
-   知识库从来不会整个塞进 prompt。关键 Claim 回到原文上下文核对。
+   `python3 -m knowledge_palace.interaction.research ask "<主题>"`，得到
+   有界的阅读计划（≤15 个候选、每篇几条 Claim、关系、当前综合、待复核项）；
+   整个知识库从来不会整个塞进 prompt。一篇论文的其余 Claim 到它的卡片上读，
+   关键 Claim 回到原文上下文核对。
 4. 有文献支持的句子引用 Claim；背景解释、假设和你的观察如实标明。库里
    没覆盖的部分说清楚，不编，也不因此拒绝给出标明身份的解释。
-5. 补文献会改变答案且你允许时，跑 `init`/`expand`，把你选定的论文入库，
+5. 同一份上下文还列出最多三个桥接候选：别的领域里与本次阅读集共用某个
+   模式、功能或失效模式的论文，两边各附一条绑定这个共享概念的 Claim；触及
+   阅读集的已存桥接卡也一并列出。只有共享机制确实作用于你的问题时才会提，
+   并标为假设、写明成立条件；不相关就不提。
+6. 补文献会改变答案且你允许时，跑 `init`/`expand`，把你选定的论文入库，
    再用新增 Claim 接着回答同一个问题。你说"记下来"，工作定义、决策、
    备选解释和下一步就进项目的 `research.md`。
 
@@ -304,7 +310,7 @@ python3 -m knowledge_palace.graph.builder --check     # 查索引是否过期
 python3 -m knowledge_palace.metadata.refresh --kind citations --scope all       # 刷新（默认只读缓存，--live 才联网）
 python3 -m knowledge_palace.viewer.cli [output.html] [--config <toml>]          # viewer 导出
 python3 -m knowledge_palace.viewer.obsidian [目录] [--config <toml>]             # Obsidian 汇总页导出
-python3 -m knowledge_palace.interaction.research ask "<主题>" --json            # 有界研究上下文
+python3 -m knowledge_palace.interaction.research ask "<主题>"                   # 有界阅读计划（--full 给完整上下文）
 python3 -m knowledge_palace.interaction.research progress "<主题>"             # 进展视图
 python3 -m knowledge_palace.interaction.research updates                        # 待复核的判断
 ```
@@ -330,6 +336,6 @@ python3 -m pytest knowledge_palace/tests -q   # 几秒跑完
 
 - **加新领域**：`/palace domain add`，不用写代码。
 - **接新运行时**：写一个薄接入层，转发到 `knowledge_palace/protocol/`
-  与 `workflows/` 并原样绑定九份角色定义即可；接入层不许复制规则正文。
+  与 `workflows/` 并原样绑定四份角色定义即可；接入层不许复制规则正文。
 - **加依赖**：目前是零依赖，这是故意的；想加必须走专门的风险评审
   （见 `CLAUDE.md`）。

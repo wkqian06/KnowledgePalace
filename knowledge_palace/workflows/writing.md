@@ -16,7 +16,7 @@ whichever is missing.
 
 Complete or reuse [manuscript analysis](manuscript-analysis.md) before either task.
 Select relevant literature and actual user results. Adopted outside papers go
-through [ingest](ingest.md). A writer receives the selected evidence and analysis;
+through [ingest](ingest.md). Drafting uses the selected evidence and analysis;
 new evidence needs return to the reading flow rather than untracked citations.
 
 Project mode reads its brief, analysis, materials, sections and chosen style.
@@ -37,6 +37,11 @@ it approved: it is delivered with the text.
 
 Read the graph before writing. Every link has to hold between its two nodes, and
 each chain has to run unbroken from its opening to its landing.
+
+When the author supplies a new revision of the section, rebuild the argument
+graph from its paragraphs before any further writing (see
+[manuscript analysis](manuscript-analysis.md)); the text is not assumed to be
+written against an old graph.
 
 What a section argues, and what it leaves to another section, is decided for
 each manuscript and recorded in its analysis. Such a decision never becomes a
@@ -163,13 +168,15 @@ it into apparent certainty.
 
 ## Review and save
 
-Use one focused review (agents/palace-reviewer.md) and address actual findings;
-at most two automatic revisions for a section. The reviewer works from the text
-before it reads the graph: it states each paragraph's point and names, for every
-pair of adjacent sentences, what the later one picks up from the earlier, or,
-for an item of a parallel series, from the sentence that introduced it. A
-check that only asks whether two sentences are related lets breaks through. The
-review is not a Python state machine and does not need a fixed concern count.
+Use one focused review and address actual findings; at most two automatic
+revisions for a section. The review is palace-reviewer, in a context separate
+from the drafting, given the absolute paths of the draft, for a polish the text
+before it, the paper cards of the sources the draft cites, this workflow, the
+manuscript analysis and the section's argument graph, neighbouring sections, the
+brief and any selected style profile. Without a separate context, review here
+under `knowledge_palace/agents/palace-reviewer.md`, which gives the order and the
+severity rules, and treat it as a same-session review. The review is not a
+Python state machine and does not need a fixed concern count.
 Text rewritten after the review is checked again against the rules before it is
 delivered, by reading what each sentence says; a scan for forbidden strings or
 punctuation is not that check.

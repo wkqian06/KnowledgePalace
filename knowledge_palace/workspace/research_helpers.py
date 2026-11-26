@@ -1,4 +1,4 @@
-"""Project learning, research decisions and user observations for the analyst."""
+"""Project learning, research decisions and user observations for the agent."""
 
 import json
 from pathlib import Path

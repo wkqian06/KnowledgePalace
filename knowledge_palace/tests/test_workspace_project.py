@@ -3,6 +3,7 @@
 import os
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from knowledge_palace.workspace.project import (
@@ -35,7 +36,7 @@ class TestValidation(unittest.TestCase):
 
     def test_every_unicode_line_boundary_rejected(self):
         # The write guard must match load_project's splitlines() parser.
-        for value in ("a\rb", "a\r", "a\vb", "a\u2028b", "a\x1cb"):
+        for value in ("a\rb", "a\r", "a\vb", "a\u2028b", "a\x1cb", "a\x00b"):
             self.assertTrue(
                 validate_project(new_project("echo", "paper", value)), repr(value)
             )
@@ -51,6 +52,22 @@ class TestSkeleton(WorkspaceCase):
         self.assertTrue((root / "project.yaml").is_file())
         with self.assertRaises(ValueError):
             create_project(self.workspace, project)
+
+    def test_concurrent_creation_never_overwrites(self):
+        def attempt(audience):
+            try:
+                return create_project(self.workspace, new_project('same', 'paper', audience))
+            except ValueError:
+                return None
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            outcomes = list(pool.map(attempt, ('first', 'second')))
+        self.assertEqual(sum(item is not None for item in outcomes), 1)
+        self.assertIn(load_project(self.workspace, 'same')['audience'], ('first', 'second'))
+
+    def test_invalid_manifest_rejected_before_creating_project(self):
+        with self.assertRaises(ValueError):
+            create_project(self.workspace, new_project('bad', 'paper', 'readers\x00invalid'))
+        self.assertFalse((self.workspace / 'projects' / 'bad').exists())
 
     def test_manifest_round_trips(self):
         project = new_project(

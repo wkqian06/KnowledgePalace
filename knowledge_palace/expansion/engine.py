@@ -109,7 +109,7 @@ def execute(run, provider, vault_identity, state_dir=None):
 
 
 def review_batch(run):
-    """The normalized candidate package for palace-expansion-reviewer."""
+    """The normalized candidate package the agent decides from."""
     candidates = []
     for key in run.new_keys:
         entry = run.pool.get(key)

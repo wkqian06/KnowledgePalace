@@ -5,7 +5,9 @@
 COMMANDS.md is the single command index. Workflows under ../workflows/ define
 collection, ingest, discussion, manuscript analysis, writing/polishing and
 feasibility. Read only the requested workflow and its necessary shared steps.
-Roles are optional specialists; the main agent may execute the same workflow.
+Paper reading, the source audit, the writing review and style curation can run
+in a separate read-only agent (definitions in ../agents/); without one the main
+agent performs them under the same definition.
 
 ## Storage resolution
 
@@ -13,7 +15,7 @@ When accessing the library/project, resolve .palace.toml against its own directo
 vault_dir, state_dir, source_dir and workspace_dir are distinct roots outside the
 Framework. Direct-material tasks do not need these roots or a new project.
 
-- Vault: papers, concepts, gaps, transfers, current syntheses and style records.
+- Vault: papers, concepts, gaps, bridge cards, current syntheses and style records.
 - Source Cache: full texts and their source versions; cards carry relative locators.
 - Workspace: user materials, project context, manuscript analysis and saved sections.
 - Derived State: reconstructible indexes, discovery/session records and task drafts.
@@ -65,7 +67,7 @@ No automated score or successful schema validation establishes a scientific clai
 
 ## Authorized writes
 
-The main agent performs writes; delegated readers return drafts and NEVER write,
+The main agent performs writes; subagents return drafts and NEVER write,
 edit, or create files. Explicit ingest or selection within an authorized collection
 includes card/source preservation. Carry prior authorization forward. Ask only for
 unresolved identity, changed scope or genuinely missing user intent.
@@ -102,7 +104,7 @@ automatic revisions for a section; no Python state machine is required.
 
 Keep the seven existing concept axes and canonical slugs. Domain-specific meaning
 lives in records, not Python enums. Inter-domain connections are shared concepts,
-justified Gap analogies or directed transfers, not cross-domain Parents links.
+justified Gap analogies or directed bridge cards, not cross-domain Parents links.
 
 Status reads current facts. Audit reviews source fidelity and inference. Govern
 proposes meaningful maintenance; it neither fetches nor writes automatically.

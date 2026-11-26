@@ -114,7 +114,7 @@ class TestPipelineCaps(unittest.TestCase):
 
 
 def tri_domain_payload():
-    """Three domains, one transfer touching all three (the dedup case)."""
+    """Three domains, one bridge touching all three (the dedup case)."""
     nodes, parents, edges = {}, {}, []
     for side in ("a", "b", "c"):
         domain_id = "domain:d-" + side
@@ -124,25 +124,25 @@ def tri_domain_payload():
         parents[domain_id] = []
         parents[work_id] = [domain_id]
         edges.append(
-            {"id": "transfer:t-all|targets|%s" % work_id,
-             "kind": "targets", "from": "transfer:t-all", "to": work_id}
+            {"id": "bridge:t-all|targets|%s" % work_id,
+             "kind": "targets", "from": "bridge:t-all", "to": work_id}
         )
-    nodes["transfer:t-all"] = {
-        "id": "transfer:t-all", "kind": "transfer", "label": "t-all",
+    nodes["bridge:t-all"] = {
+        "id": "bridge:t-all", "kind": "bridge", "label": "t-all",
     }
-    parents["transfer:t-all"] = []
+    parents["bridge:t-all"] = []
     return {"nodes": nodes, "parents": parents, "edges": edges,
             "hierarchies": [{"id": "h", "label": "h", "levels": []}]}
 
 
 class TestCorridorDedup(unittest.TestCase):
-    def test_transfer_spanning_three_domains_counts_once(self):
+    def test_bridge_spanning_three_domains_counts_once(self):
         result = novelty_pipeline(tri_domain_payload(), "tri")
         block = result["corridors"]
         self.assertEqual(block["total"], 1)  # not 3 (one per domain pair)
         self.assertEqual(len(block["returned"]), 1)
         self.assertFalse(block["truncated"])
-        self.assertEqual(block["returned"][0]["via"], "transfer:t-all")
+        self.assertEqual(block["returned"][0]["via"], "bridge:t-all")
 
 
 class TestAssessment(unittest.TestCase):
@@ -161,7 +161,7 @@ class TestAssessment(unittest.TestCase):
             closest_prior_work=["work:alpha-2020-echo", "project-source:doi:10.99999/x"],
             alternative_hypotheses=["the gain is a data artefact"],
             novelty={"mechanism": "no Vault work couples echo and foxtrot this way"},
-            possible_novelty=["graph synthesis: gap-echo-noise x transfer-echo-to-gamma"],
+            possible_novelty=["graph synthesis: gap-echo-noise x bridge-echo-to-gamma"],
         )
         base.update(overrides)
         return new_assessment(**base)

@@ -9,11 +9,11 @@ knowledge_palace/protocol/COMMANDS.md. Load the requested workflow only.
 
 - init / expand → workflows/collection.md → selected papers use ingest.
 - ingest (including deeper reading of existing papers) → workflows/ingest.md.
-- ask → workflows/discussion.md; brief views → palace-analyst and EVIDENCE.md.
+- ask, brief views, discover, idea refine → workflows/discussion.md and EVIDENCE.md.
 - write / polish / draft intro → workflows/writing.md and manuscript-analysis.md.
 - feasibility → workflows/feasibility.md.
 - research / updates → project research context and evidence review records.
-- discover develops cross-domain transfers; idea refine develops the user's idea.
+- discover develops cross-domain bridges; idea refine develops the user's idea.
 - status, audit, govern, refresh, domain, style, viewer and wiki retain their
   specific responsibilities in COMMANDS.md.
 
@@ -46,9 +46,11 @@ performs authorized writes. Existing explicit task authorization persists; do no
 ask the user to reselect papers or reapprove the same scope. Resolve only material
 ambiguities. Unrequested saved discussions and project creation need user intent.
 
-The nine role contracts under knowledge_palace/agents/ are optional specialists,
-not a mandatory sequence. A straightforward task may be completed by the main
-agent. Delegates receive resolved inputs and a bounded reading scope, return drafts,
+The four contracts under knowledge_palace/agents/ (extractor, auditor, reviewer,
+stylist) cover the steps that gain from a separate context: a long or parallel
+paper reading, an independent source audit or writing review, and style curation.
+They are optional, not a mandatory sequence; without them the main agent performs
+the step under the same contract. Delegates receive resolved inputs and a bounded reading scope, return drafts,
 and NEVER write, edit, or create files. The two runtimes use thin adapters pointing
 at these contracts. No native-agent dependency is required for the main workflow.
 

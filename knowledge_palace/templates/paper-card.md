@@ -111,11 +111,14 @@ style_card: <optional slug in styles/bank/>
 <!-- Also record null findings and results that did not support the authors'
      hypothesis, and conditions under which the authors say results may not hold. -->
 
-## Transfer notes
+## Bridge notes
 
-<!-- Only if the paper is cross-domain or carries a transferable function.
-     Otherwise delete this section. -->
-- <function/pattern that could transfer, toward which domain/task, and why>
+<!-- Only if the paper shares a pattern, function or failure mode with work in
+     another domain. Name the shared concept slug, the other domain, and what
+     would have to hold there for the link to carry over. How the paper serves
+     the user's own project goes in Reading notes. Otherwise delete this
+     section. Older cards call this section Transfer notes. -->
+- <shared concept slug — other domain/task — what carries over, under what condition>
 
 ## Reading notes
 

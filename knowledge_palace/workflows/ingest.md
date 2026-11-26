@@ -17,7 +17,9 @@ card. Search candidates that were not selected remain discovery records.
    possessing a full PDF does not mean it has been read fully.
 3. Read to the user's question and requested depth. Use sections, figures,
    tables, equations and source blocks to locate evidence. PDF page indices and
-   printed pages must be distinguishable. An abstract-only card can contain
+   printed pages must be distinguishable: a PDF's text companion marks each
+   `===== [PDF page N] =====`, where N is the PDF page index, not the printed
+   page number. An abstract-only card can contain
    abstract quotes; a metadata-only card has no scientific Claims.
 4. Explain the author's question, method, principal findings and boundaries.
    Relate load-bearing Claims to the supporting analysis, comparison or figure.
@@ -66,9 +68,24 @@ before deciding: repair the wording in place when it drifted from the source, fi
 the anchor when the quote sits elsewhere in this paper, retract the Claim when it
 is not this paper's, and repoint any table row that cited it. A repair needs
 `source_dir`; save_paper refuses wording the cached text does not carry.
-Use available canonical concepts; do not invent a Gap just to populate the card.
-Link to relevant existing Gaps when justified and update their current synthesis
-only where the evidence changes it.
+
+Align the draft with the registry and the Gap landscape from a prefiltered set:
+the relevant `concepts.md` sections, 5–15 gap and paper cards and their INDEX
+rows, never the whole Vault; when that set is insufficient, say so in the report
+rather than reading wider. Map each concept term to its canonical slug, through
+Aliases where they match, or mark it `NEW` or `DROP` with a reason. A new concept
+stays within the per-paper limit in PALACE.md, with its axis, Parents, status
+`candidate` and a one-line justification; no `Parents` edge joins two domain
+subtrees. Do not invent a Gap just to populate the card. Evidence relations
+follow EVIDENCE.md: a `gap:` target takes `identifies`, `supports`,
+`partially_addresses`, `disputes` or `reframes`; a `claim:` target takes
+`same_question`, `overlaps`, `broader_than`, `narrower_than` or
+`different_question`. When the paper identifies a gap no card covers, draft a gap
+card from `knowledge_palace/templates/gap-card.md` (status `open`, `source_type`
+set) and, where it shares a failure mode with an existing gap, including one in
+another domain, propose a `related:` link with a one-line reason. Update a Gap's
+current synthesis only where the evidence changes it. The paper's `weight` follows
+the bands in PALACE.md.
 
 The main agent saves the reviewed paper through
 `acquisition.transaction.save_paper(vault_dir, card_text, source_dir)`. It refuses
@@ -84,7 +101,26 @@ whole batch and any related Gap edits, call
 `graph.builder.ensure_index(vault_dir, state_dir, workspace_dir)` once; without the
 workspace root, project-level impacts are not recorded. Affected judgments are then
 read with `python -m knowledge_palace.interaction.research updates`, not from the
-return value. Subagents return reading drafts and never write authoritative files.
+return value.
+
+A long paper, or several papers read in parallel, can go to palace-extractor.
+Give it the absolute paths of the cached text, this workflow,
+`knowledge_palace/templates/paper-card.md`, the existing card if any and the
+relevant `concepts.md` sections, with the source version, the reading question
+and the depth. This context then receives the draft instead of the paper; you
+align it, review it and save it as above. A draft that ends with an interruption
+note is incomplete; have the remaining sections read again. A subagent returns a
+reading draft and never writes authoritative files.
+
+Review the judgments this batch put in the queue before the ingest ends, while its
+papers are still in context. For each Gap, brief or bridge entry, propose in the
+report whether to retain the judgment or revise it within its conditions; after
+the user confirms, write the revisions and record each decision with
+`research resolve`. A revision that would move a Gap's status waits for the next
+govern, which applies the counting rules across the library and has
+palace-auditor review the move. An entry this ingest cannot review also waits for
+govern; name it in the report. Project entries are the user's research decisions:
+list them in the report and leave them open.
 
 An explicit ingest request or an approved collection scope includes the selected
 papers' cards, source preservation and a domain those papers open. Do not ask the
@@ -93,7 +129,7 @@ scope choice. Report saved paths, reading depth, unavailable material, a domain
 opened with its scope and reasoning, and what the reading added.
 
 A temporary ProjectSource is a discovery locator. When a paper is adopted, save
-its card, rebuild the index, and run `interaction.project_source.resolve` again
-against the fresh `load_vault_identity` result: the reference now returns the
+its card, rebuild the index, and resolve the reference again
+(`research source "<DOI, arXiv id or title>"`): the reference now returns the
 Work to cite. Retain old project-source references for historical drafts; use
 Vault refs for new work.

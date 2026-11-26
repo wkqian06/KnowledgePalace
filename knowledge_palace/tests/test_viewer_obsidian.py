@@ -63,7 +63,7 @@ class TestPageSet(WikiCase):
             "concepts/method-delta.md",
             "gaps/gap-echo-noise.md",
             "gaps/gap-gamma-drift.md",
-            "transfers/transfer-echo-to-gamma.md",
+            "bridges/bridge-echo-to-gamma.md",
         }
         self.assertEqual(set(pages), expected)  # no papers/, no claim pages
 
@@ -83,10 +83,10 @@ class TestPageSet(WikiCase):
 
     def test_edge_kinds_land_in_sections(self):
         pages = self.pages()
-        transfer = pages["transfers/transfer-echo-to-gamma.md"]
-        for heading in ("## From", "## To", "## Bridges", "## Addresses", "## Evidence papers"):
-            self.assertIn(heading, transfer)
-        self.assertIn("[[vault/papers/alpha-2020-echo|", transfer)
+        bridge = pages["bridges/bridge-echo-to-gamma.md"]
+        for heading in ("## From", "## To", "## Via", "## Addresses", "## Evidence papers"):
+            self.assertIn(heading, bridge)
+        self.assertIn("[[vault/papers/alpha-2020-echo|", bridge)
         gap = pages["gaps/gap-echo-noise.md"]
         self.assertIn("[[wiki/gaps/gap-gamma-drift|", gap)  # Related gaps
         self.assertIn("[[vault/gaps/gap-echo-noise|", gap)  # Card link

@@ -104,7 +104,7 @@ def evidence_changes(before, after):
     changed_nodes = changed_evidence_nodes(before, after)
     for node_id, node in sorted(after["nodes"].items()):
         entries = list(node.get("attrs", {}).get("synthesis", []))
-        if node["kind"] == "transfer" and node["attrs"].get("dependencies"):
+        if node["kind"] == "bridge" and node["attrs"].get("dependencies"):
             entries.append({"id": "hypothesis", "claims": ", ".join(node["attrs"]["dependencies"]), "gaps": "-"})
         for entry in entries:
             refs = dependencies(entry)

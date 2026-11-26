@@ -4,9 +4,9 @@ import re
 from collections import Counter
 from itertools import zip_longest
 
-from .prefilter import CANDIDATE_CAP, candidate_matches, match_rank
+from .prefilter import CANDIDATE_CAP, candidate_matches, rank_matches
 from ..semantic.evidence_helpers import dependencies, RELATIONS
-from ..semantic.corridors import _domain_resolver, SHARED_AXES
+from ..semantic.corridors import domain_resolver, SHARED_AXES
 
 
 def research_context(payload, topic, alternatives=(), bridge_stopwords=()):
@@ -17,7 +17,7 @@ def research_context(payload, topic, alternatives=(), bridge_stopwords=()):
         matches = candidate_matches(payload, query)
         for nid, why in matches.items():
             match_reasons.setdefault(nid, set()).update(why)
-        pools.append(sorted(matches, key=lambda nid: match_rank(nid, matches[nid])))
+        pools.append(rank_matches(payload, matches))
         attempts.append({"query": query, "hits": len(matches)})
     # A synthesis is current for this question when its evidence is among the leading
     # matches; on a real library the whole match pool covers most of the Vault.
@@ -87,6 +87,11 @@ def research_context(payload, topic, alternatives=(), bridge_stopwords=()):
             for ref in dependencies(entry)}
     gap_ids.update(ref for ref in refs if ref.startswith("gap:") and ref in nodes)
     refs.update(edge["to"] for edge in relations if edge["to"].startswith("claim:"))
+    reach = ids | gap_ids
+    cards = sorted({edge["from"] for edge in payload["edges"] if edge["to"] in reach
+                    and nodes.get(edge["from"], {}).get("kind") == "bridge"
+                    and nodes[edge["from"]]["attrs"].get("status") != "dropped"})
+    reached = [why for nid in selected for why in match_reasons.get(nid, ())]
     return {
         "topic": topic, "attempts": attempts,
         "candidates": [{"node_id": nid, "canonical_ref": dict(nodes[nid]["canonical_ref"]),
@@ -97,39 +102,68 @@ def research_context(payload, topic, alternatives=(), bridge_stopwords=()):
         "related_gaps": [{"node_id": nid, "canonical_ref": nodes[nid]["canonical_ref"]}
                          for nid in sorted(gap_ids - ids)],
         "unread_dependencies": sorted(ref for ref in refs if ref not in claims and ref not in ids),
-        "cross_domain": cross_domain_candidates(payload, ids, bridge_stopwords),
+        "bridges": {
+            "cards": [{"node_id": nid, "canonical_ref": nodes[nid]["canonical_ref"],
+                       "status": nodes[nid]["attrs"].get("status", "")} for nid in cards],
+            "candidates": bridge_candidates(payload, ids, reached, bridge_stopwords),
+        },
         "coverage": "candidate-set-only" if ids else "no-candidates",
     }
 
 
-def cross_domain_candidates(payload, selected, stopwords=()):
-    """Suggest at most three foreign sources through the selected works' functions."""
+def bridge_candidates(payload, selected, reasons=(), stopwords=()):
+    """At most three foreign works sharing a pattern, function or failure mode with
+    the reading set, each with the Claim that binds the shared concept on both sides.
+
+    Concepts the question reached (through a matched Claim's bindings or a matched
+    concept in ``reasons``) come first, then rarer concepts before common ones; each
+    concept yields at most one work. A work is foreign when it has a domain that no
+    reading-set paper sharing that concept has; the rest of the reading set does not
+    count, so a broad reading set does not hide a foreign match. A concept without a
+    binding Claim on both sides yields none, so fewer than three rows, or none, is a
+    normal result.
+    """
     nodes = payload["nodes"]
-    domains_of = _domain_resolver(payload)
-    origins = set().union(*(domains_of(nid) for nid in selected))
-    attached = {}
+    domains_of = domain_resolver(payload)
+    attached, binding, claim_concepts = {}, {}, {}
     for edge in payload["edges"]:
-        concept = nodes.get(edge["to"], {})
-        if (edge["kind"] not in ("tag:pattern", "tag:function", "tag:failure-mode", "concerns")
-                or concept.get("attrs", {}).get("axis") not in SHARED_AXES
+        if (nodes.get(edge["to"], {}).get("attrs", {}).get("axis") not in SHARED_AXES
                 or edge["to"].split(":", 1)[-1] in stopwords):
             continue
-        attached.setdefault(edge["to"], set()).add(edge["from"])
-    result = []
-    for via, endpoints in sorted(attached.items()):
-        local = endpoints & selected
-        if not local:
+        if edge["kind"] in ("tag:pattern", "tag:function", "tag:failure-mode", "concerns"):
+            attached.setdefault(edge["to"], set()).add(edge["from"])
+        elif edge["kind"] == "binds":  # retracted Claims bind nothing
+            work = payload["parents"][edge["from"]][0]
+            binding.setdefault((work, edge["to"]), []).append(edge["from"])
+            claim_concepts.setdefault(edge["from"], set()).add(edge["to"])
+    topic = set()
+    for why in reasons:
+        if why.startswith("claim:"):
+            topic.update(claim_concepts.get(why[6:].split(" ")[0], ()))
+        elif why.startswith("concept:"):
+            topic.add(why[8:].split(" ")[0])
+
+    def first_claim(claim_ids):
+        cid = min(claim_ids, key=lambda c: int(c.rsplit("#C", 1)[1]))
+        return {"id": cid, "quote": nodes[cid]["attrs"]["quote"], "anchor": nodes[cid]["attrs"]["anchor"]}
+
+    rows = []
+    for via in sorted(attached, key=lambda c: (c not in topic, len(attached[c]), c)):
+        local = [nid for nid in sorted(attached[via] & selected) if (nid, via) in binding]
+        home = set().union(*(domains_of(nid) for nid in attached[via] & selected))
+        foreign = [nid for nid in attached[via] - selected
+                   if nodes[nid]["kind"] == "work" and domains_of(nid) - home
+                   and (nid, via) in binding and all(row["node_id"] != nid for row in rows)]
+        if not local or not foreign:
             continue
-        for nid in sorted(endpoints - selected):
-            if (nodes[nid]["kind"] != "work" or not domains_of(nid) - origins
-                    or any(row["node_id"] == nid for row in result)):
-                continue
-            result.append({"node_id": nid, "via": via, "from": sorted(local),
-                           "canonical_ref": nodes[nid]["canonical_ref"],
-                           "status": "candidate; compare assumptions before transfer"})
-            if len(result) == 3:
-                return result
-    return result
+        nid = min(foreign, key=lambda w: (-len(binding[(w, via)]), w))
+        rows.append({"node_id": nid, "canonical_ref": nodes[nid]["canonical_ref"], "via": via,
+                     "axis": nodes[via]["attrs"]["axis"], "local": local[:3],
+                     "local_claim": first_claim(binding[(local[0], via)]),
+                     "claim": first_claim(binding[(nid, via)])})
+        if len(rows) == 3:
+            break
+    return rows
 
 
 def bounded_context(context, claims_per_work=3):
@@ -200,9 +234,14 @@ def bounded_context(context, claims_per_work=3):
         "related_gaps": [{"node_id": row["node_id"], "path": row["canonical_ref"]["path"]}
                          for row in context["related_gaps"]],
         "unread_dependencies": context["unread_dependencies"],
-        "cross_domain": [{"node_id": row["node_id"], "path": row["canonical_ref"]["path"],
-                          "via": row["via"], "from": row["from"], "status": row["status"]}
-                         for row in context["cross_domain"]],
+        "bridges": {
+            "cards": [{"node_id": row["node_id"], "path": row["canonical_ref"]["path"],
+                       "status": row["status"]} for row in context["bridges"]["cards"]],
+            "candidates": [{"node_id": row["node_id"], "path": row["canonical_ref"]["path"],
+                            "via": row["via"], "axis": row["axis"], "local": row["local"],
+                            "local_claim": row["local_claim"], "claim": row["claim"]}
+                           for row in context["bridges"]["candidates"]],
+        },
     }
 
 
@@ -260,10 +299,19 @@ def render_progress(context):
     for work_id, work in context["works"].items():
         for row in work["attrs"].get("conditions", []):
             lines.append("- `%s#%s` %s: %s" % (work_id, row["evidence"], row["dimension"], row["value"]))
-    lines.extend(["", "## Cross-domain reading candidates", ""])
-    for item in context["cross_domain"]:
-        lines.append("- `%s` via `%s` from %s: %s" % (
-            item["node_id"], item["via"], ", ".join(item["from"]), item["status"]))
+    lines.extend(["", "## Cross-domain bridges", ""])
+    for card in context["bridges"]["cards"]:
+        lines.append("- Bridge card [%s](../%s): %s" % (
+            card["node_id"], card["canonical_ref"]["path"], card["status"]))
+    for item in context["bridges"]["candidates"]:
+        lines.extend([
+            "- [H] `%s` shares `%s` (%s) with %s; compare assumptions before relying on it." % (
+                item["node_id"], item["via"], item["axis"], ", ".join(item["local"])),
+            "  Local: %s — %s (%s)" % (item["local_claim"]["id"], item["local_claim"]["quote"],
+                                       item["local_claim"]["anchor"]),
+            "  Foreign: %s — %s (%s)" % (item["claim"]["id"], item["claim"]["quote"],
+                                         item["claim"]["anchor"]),
+        ])
     lines.extend(["", "## Pending judgment reviews", ""])
     for row in context.get("pending_updates", []):
         lines.append("- `%s` / %s: %s" % (row["node_id"], row["entry"], "; ".join(row["suggestions"])))

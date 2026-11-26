@@ -10,16 +10,17 @@ complete content AND collision refusal, atomically.
 
 import os
 import re
+import tempfile
 from pathlib import Path
 
-from .project import _SLUG
+from .project import SLUG
 
 ASSEMBLED = "assembled"
 _REVISION = re.compile(r"^r(\d{3})\.md$")
 
 
 def _section_dir(project_dir, section):
-    if not _SLUG.match(section):
+    if not SLUG.match(section):
         raise ValueError("section %r must be ASCII kebab-case" % section)
     return Path(project_dir) / "sections" / section
 
@@ -28,7 +29,8 @@ def list_revisions(project_dir, section):
     directory = _section_dir(project_dir, section)
     if not directory.is_dir():
         return []
-    return sorted(p.name for p in directory.iterdir() if _REVISION.match(p.name))
+    return sorted(p.name for p in directory.iterdir()
+                  if _REVISION.match(p.name) and not p.is_symlink() and p.is_file())
 
 
 def latest(project_dir, section):
@@ -36,18 +38,31 @@ def latest(project_dir, section):
     return revisions[-1] if revisions else None
 
 
-def save_revision(project_dir, section, text):
-    """One confirmed save → the next rNNN.md; existing bytes never change."""
+def save_revision(project_dir, section, text, expected_latest=...):
+    """Publish a complete immutable revision; optionally reject stale editors.
+
+    A unique temporary file avoids concurrent writers sharing temporary bytes.
+    Atomic link creation ensures only one writer can publish a particular next
+    revision. On collision the caller must reload rather than overwrite.
+    """
     directory = _section_dir(project_dir, section)
     directory.mkdir(parents=True, exist_ok=True)
-    numbers = [int(_REVISION.match(name).group(1)) for name in list_revisions(project_dir, section)]
-    target = directory / ("r%03d.md" % (max(numbers, default=0) + 1))
-    temp = directory / (".%s.tmp" % target.name)
-    temp.write_text(text, encoding="utf-8")
+    revisions = list_revisions(project_dir, section)
+    current = revisions[-1] if revisions else None
+    if expected_latest is not ... and expected_latest != current:
+        raise ValueError("revision conflict: expected %r, latest is %r" % (expected_latest, current))
+    number = int(_REVISION.match(current).group(1)) + 1 if current else 1
+    if number > 999:
+        raise ValueError("revision limit reached")
+    target = directory / ("r%03d.md" % number)
+    fd, temporary = tempfile.mkstemp(prefix=".revision-", suffix=".tmp", dir=directory)
     try:
-        os.link(temp, target)  # refuses if target exists; content complete
-    except FileExistsError:
-        raise ValueError("revision %s already exists — revisions are immutable" % target.name)
+        with os.fdopen(fd, "w", encoding="utf-8", newline="") as output:
+            output.write(text)
+        try:
+            os.link(temporary, target)
+        except FileExistsError:
+            raise ValueError("revision conflict: another writer saved %s; reload before saving" % target.name)
     finally:
-        temp.unlink()
+        os.unlink(temporary)
     return target

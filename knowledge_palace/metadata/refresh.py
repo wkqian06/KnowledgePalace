@@ -123,6 +123,72 @@ def refresh_snapshots(vault, state, scope="all", live=False, jcr=None, mailto=No
     return result
 
 
+def refresh_references(vault, state, scope="all", live=False, mailto=None, api_key=None, sleep=None):
+    """Fill reference lists the citation overlay needs (cache-first).
+
+    OpenAlex often carries no ``referenced_works`` for arXiv preprints and old
+    journal articles. For each in-scope work whose cached OpenAlex record has
+    no references, fetch Semantic Scholar references, then Crossref reference
+    DOIs for non-arXiv DOIs. Results land only in the Bibliographic Cache.
+
+    Returns {"openalex": [...], "semanticscholar": [...], "crossref": [...],
+    "empty": [(slug, why)], "errors": [(slug, why)]}.
+    """
+    import time
+
+    sleep = sleep or time.sleep
+    cache = BibliographicCache(state)
+    transport = live_transport() if live else None
+    limiter = RateLimiter(min_interval=3.0) if live else None
+    openalex = ADAPTERS["openalex"](cache=cache, mailto=mailto)
+    s2 = ADAPTERS["semanticscholar"](fetch=transport, cache=cache, limiter=limiter, api_key=api_key)
+    crossref = ADAPTERS["crossref"](fetch=transport, cache=cache, limiter=limiter, mailto=mailto)
+    result = {"openalex": [], "semanticscholar": [], "crossref": [], "empty": [], "errors": []}
+    for path in scope_cards(vault, scope):
+        slug = path.stem
+        ref = extract_external_ids(read_card_fields(path).get("source", "") or "")
+        if not ref:
+            continue
+        try:
+            hit = cache.get("openalex", openalex._work_url(ref))
+        except ProviderError:
+            hit = None
+        if hit and (hit.get("payload") or {}).get("referenced_works"):
+            result["openalex"].append(slug)
+            continue
+        reasons = []
+
+        def s2_references():
+            # The unauthenticated Semantic Scholar pool answers 429 under load; back off and retry.
+            for attempt in range(4):
+                try:
+                    return s2.references(ref)
+                except ProviderError as err:
+                    if not live or "429" not in str(err.detail) or attempt == 3:
+                        raise
+                    sleep(8 * (attempt + 1))
+
+        try:
+            if s2_references()["count"]:
+                result["semanticscholar"].append(slug)
+                continue
+            reasons.append("semanticscholar: no references")
+        except ProviderError as err:
+            reasons.append("semanticscholar: %s" % err.detail)
+        doi = ref.get("doi")
+        if doi and not str(doi).lower().startswith("10.48550/"):
+            try:
+                if crossref.references({"doi": doi})["count"]:
+                    result["crossref"].append(slug)
+                    continue
+                reasons.append("crossref: no references")
+            except ProviderError as err:
+                reasons.append("crossref: %s" % err.detail)
+        bucket = "errors" if any("transport failure" in why for why in reasons) else "empty"
+        result[bucket].append((slug, "; ".join(reasons)))
+    return result
+
+
 def citations_proposal(vault, state, scope="all"):
     """Card-vs-snapshot citation diff as a PROPOSAL report (no card writes)."""
     snapshots = load_snapshots(state)
@@ -258,6 +324,16 @@ def run(argv):
                 print("  - %s: %s" % (slug, why))
             if args.kind == "citations":
                 print("proposal: %s" % citations_proposal(vault, state, args.scope))
+                refs = refresh_references(
+                    vault, state, scope=args.scope, live=args.live, mailto=mailto,
+                    api_key=os.environ.get("S2_API_KEY"),
+                )
+                print(
+                    "reference lists: openalex=%d semanticscholar=%d crossref=%d empty=%d errors=%d"
+                    % tuple(len(refs[key]) for key in ("openalex", "semanticscholar", "crossref", "empty", "errors"))
+                )
+                for slug, why in refs["errors"]:
+                    print("  ! %s: %s" % (slug, why))
         if args.dryrun_weights:
             target, covered, agreements = weight_dryrun(vault, state, year)
             print(

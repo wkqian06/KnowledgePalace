@@ -1,79 +1,62 @@
-"""Append-only rNNN revisions; no-save zero change."""
+"""Reading one named section revision for the writing workspace history view."""
 
-import hashlib
 import tempfile
 import unittest
 from pathlib import Path
 
+from knowledge_palace.workspace.discovery import read_revision
 from knowledge_palace.workspace.project import create_project, new_project
-from knowledge_palace.workspace.revision import (
-    ASSEMBLED,
-    latest,
-    list_revisions,
-    save_revision,
-)
-
-
-def tree_digest(base):
-    digest = hashlib.sha256()
-    for path in sorted(Path(base).rglob("*")):
-        if path.is_file():
-            digest.update(path.relative_to(base).as_posix().encode("utf-8"))
-            digest.update(path.read_bytes())
-    return digest.hexdigest()
 
 
 class RevisionCase(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
-        self.workspace = Path(self._tmp.name)
-        self.project_dir = create_project(
-            self.workspace, new_project("echo-paper", "paper", "a")
-        )
+        self.workspace = Path(self._tmp.name) / "workspace"
+        self.workspace.mkdir()
+        create_project(self.workspace, new_project("echo-paper", "paper", "readers", venue="Echo Journal"))
+        self.section = self.workspace / "projects" / "echo-paper" / "sections" / "introduction"
+        self.section.mkdir()
 
 
-class TestAppendOnly(RevisionCase):
-    def test_sequencing_and_prior_immutability(self):
-        first = save_revision(self.project_dir, "introduction", "v1 text\n")
-        self.assertEqual(first.name, "r001.md")
-        before = first.read_bytes()
-        second = save_revision(self.project_dir, "introduction", "v2 text\n")
-        self.assertEqual(second.name, "r002.md")
-        self.assertEqual(first.read_bytes(), before)  # prior bytes untouched
-        self.assertEqual(list_revisions(self.project_dir, "introduction"),
-                         ["r001.md", "r002.md"])
-        self.assertEqual(latest(self.project_dir, "introduction"), "r002.md")
-        self.assertFalse(  # no temp litter
-            [p for p in first.parent.iterdir() if p.name.endswith(".tmp")]
-        )
+class TestReadRevision(RevisionCase):
+    def test_reads_named_revision(self):
+        (self.section / "r001.md").write_bytes("first 文本\n".encode("utf-8"))
+        (self.section / "r002.md").write_bytes(b"second\n")
+        self.assertEqual(read_revision(self.workspace, "echo-paper", "introduction", "r001.md"),
+                         {"section": "introduction", "revision": "r001.md", "content": "first 文本\n"})
+        self.assertEqual(read_revision(self.workspace, "echo-paper", "introduction", "r002.md")["content"], "second\n")
 
-    def test_existing_revision_never_overwritten(self):
-        save_revision(self.project_dir, "methods", "text\n")
-        rogue = self.project_dir / "sections" / "methods" / "r002.md"
-        rogue.write_text("occupied\n", encoding="utf-8")
-        third = save_revision(self.project_dir, "methods", "next\n")
-        self.assertEqual(third.name, "r003.md")  # numbering skips past it
-        self.assertEqual(rogue.read_text(encoding="utf-8"), "occupied\n")
+    def test_rejects_invalid_revision_names(self):
+        (self.section / "r001.md").write_text("text", encoding="utf-8")
+        for name in ("../r001.md", "r1.md", "r001.md\n", "r001.txt", "", None):
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                read_revision(self.workspace, "echo-paper", "introduction", name)
 
-    def test_assembled_is_a_reserved_section(self):
-        target = save_revision(self.project_dir, ASSEMBLED, "full document\n")
-        self.assertEqual(target.parent.name, "assembled")
+    def test_rejects_invalid_section_and_project(self):
+        for section in ("../introduction", "Introduction", "intro/x", ""):
+            with self.subTest(section=section), self.assertRaises(ValueError):
+                read_revision(self.workspace, "echo-paper", section, "r001.md")
+        with self.assertRaises(FileNotFoundError):
+            read_revision(self.workspace, "missing-paper", "introduction", "r001.md")
 
-    def test_bad_section_name_rejected(self):
-        for section in ("../escape", "methods\n", "Methods", ""):
-            with self.assertRaises(ValueError):
-                save_revision(self.project_dir, section, "x")
+    def test_missing_section_or_revision(self):
+        with self.assertRaises(FileNotFoundError):
+            read_revision(self.workspace, "echo-paper", "methods", "r001.md")
+        with self.assertRaises(FileNotFoundError):
+            read_revision(self.workspace, "echo-paper", "introduction", "r001.md")
 
+    def test_revision_directory_is_not_a_file(self):
+        (self.section / "r001.md").mkdir()
+        with self.assertRaises(FileNotFoundError):
+            read_revision(self.workspace, "echo-paper", "introduction", "r001.md")
 
-class TestNoSaveZeroChange(RevisionCase):
-    def test_workspace_byte_identical_without_a_confirmed_save(self):
-        save_revision(self.project_dir, "introduction", "v1\n")
-        before = tree_digest(self.workspace)
-        # A full no-save interaction touches nothing: reads only.
-        list_revisions(self.project_dir, "introduction")
-        latest(self.project_dir, "introduction")
-        self.assertEqual(tree_digest(self.workspace), before)
+    def test_rejects_revision_over_one_mebibyte(self):
+        (self.section / "r001.md").write_bytes(b"x" * (1024 * 1024 + 1))
+        with self.assertRaises(ValueError):
+            read_revision(self.workspace, "echo-paper", "introduction", "r001.md")
+        (self.section / "r002.md").write_bytes(b"x" * (1024 * 1024))
+        self.assertEqual(len(read_revision(self.workspace, "echo-paper", "introduction", "r002.md")["content"]), 1024 * 1024)
 
 
 if __name__ == "__main__":

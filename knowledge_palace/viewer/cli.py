@@ -68,7 +68,7 @@ def run(argv):
     parser.add_argument("output", nargs="?", help="output HTML path (default: ./%s)" % DEFAULT_FILENAME)
     parser.add_argument("--config", help="path to .palace.toml")
     parser.add_argument("--lean", action="store_true",
-                        help="graph and paper/gap/transfer cards only; keeps the page small on a large library")
+                        help="graph and paper/gap/bridge cards only; keeps the page small on a large library")
     args = parser.parse_args(argv)
     try:
         target = export(args.output, args.config, args.lean)

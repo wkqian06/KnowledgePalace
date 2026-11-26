@@ -6,14 +6,15 @@ deprioritize accidental hits); matched concepts pull in their attached
 works/gaps; when the hits span multiple domains, shared-axis corridors add
 their sampled endpoints so cross-domain questions reach foreign material. Output is a
 bounded (≤15), deterministically ordered list of id/locator descriptors —
-the whole Vault never loads, and palace-analyst receives ids to drill
+the whole Vault never loads, and the agent receives ids to drill
 selectively through the port.
 """
 
 import re
+from collections import Counter
 from itertools import combinations
 
-from ..semantic.corridors import _domain_resolver, find_corridors
+from ..semantic.corridors import domain_resolver, find_corridors
 
 CANDIDATE_CAP = 15
 _TOKEN = re.compile(r"[a-z0-9][a-z0-9-]+|[\u3400-\u9fff]+")
@@ -108,7 +109,7 @@ def candidate_matches(payload, question, stopwords=()):
 
     # Cross-domain augmentation: when hits span domains, typed corridors
     # contribute their sampled endpoints.
-    domains_of = _domain_resolver(payload)
+    domains_of = domain_resolver(payload)
     hit_domains = sorted(
         {d.split(":", 1)[1] for nid in reasons for d in domains_of(nid)}
     )
@@ -124,31 +125,39 @@ def candidate_matches(payload, question, stopwords=()):
     return reasons
 
 
-def match_rank(node_id, why):
-    """Sort key for one match: the more query terms it covers the earlier it reads;
-    then terms carried by its own label or a concept tag, then matching Claims.
+def rank_matches(payload, matches):
+    """Match ids in reading order: the more query terms a match covers the earlier it
+    reads; then terms carried by its own label or a concept tag; then the share of
+    the card's Claims that match, so a long card does not win a tie by length alone.
     A corridor reason names no query term, so it never outranks a direct match."""
-    covered, tagged = set(), set()
-    for reason in why:
-        if reason.startswith("corridor:"):
-            continue
-        term = reason.rsplit("term:", 1)[1].rstrip(")")
-        covered.add(term)
-        if not reason.startswith("claim:"):
-            tagged.add(term)
-    return (-len(covered), -len(tagged), -sum(reason.startswith("claim:") for reason in why), node_id)
+    claim_totals = Counter(parents[0] for node_id, parents in payload["parents"].items()
+                           if node_id.startswith("claim:") and parents)
+
+    def key(node_id):
+        covered, tagged, claims = set(), set(), set()
+        for reason in matches[node_id]:
+            if reason.startswith("corridor:"):
+                continue
+            term = reason.rsplit("term:", 1)[1].rstrip(")")
+            covered.add(term)
+            if reason.startswith("claim:"):
+                claims.add(reason.split(" ", 1)[0])
+            else:
+                tagged.add(term)
+        return (-len(covered), -len(tagged), -len(claims) / max(claim_totals[node_id], 1), node_id)
+
+    return sorted(matches, key=key)
 
 
 def find_candidates(payload, question, stopwords=(), cap=CANDIDATE_CAP):
     """Bounded deterministic candidate descriptors for one question."""
     reasons = candidate_matches(payload, question, stopwords)
     cap = max(1, min(int(cap), CANDIDATE_CAP))
-    ranked = sorted(reasons.items(), key=lambda item: match_rank(*item))[:cap]
     return [
         {
             "node_id": node_id,
             "canonical_ref": dict(payload["nodes"][node_id].get("canonical_ref") or {}),
-            "why": sorted(why),
+            "why": sorted(reasons[node_id]),
         }
-        for node_id, why in ranked
+        for node_id in rank_matches(payload, reasons)[:cap]
     ]

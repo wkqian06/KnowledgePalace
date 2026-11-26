@@ -215,37 +215,37 @@ def build_payload(vault):
                 return prefix + slug
         return None
 
-    for slug, transfer in sorted(identity["transfers"].items()):
-        node_id = "transfer:" + slug
+    for slug, bridge in sorted(identity["bridges"].items()):
+        node_id = "bridge:" + slug
         nodes[node_id] = _node(
-            node_id, "transfer", slug, transfer["path"],
-            attrs={"status": transfer["status"], "synthesis": transfer["synthesis"],
-                   "dependencies": ["work:" + p for p in transfer["papers"]]
-                                   + ["gap:" + g for g in transfer["gaps"]]}
+            node_id, "bridge", slug, bridge["path"],
+            attrs={"status": bridge["status"], "synthesis": bridge["synthesis"],
+                   "dependencies": ["work:" + p for p in bridge["papers"]]
+                                   + ["gap:" + g for g in bridge["gaps"]]}
         )
         parents[node_id] = []
-        for field, kind in (("a", "transfer-from"), ("c", "transfer-to")):
-            target = any_ref(transfer[field])
+        for field, kind in (("from", "bridge-from"), ("to", "bridge-to")):
+            target = any_ref(bridge[field])
             if target:
                 add_edge(node_id, kind, target)
-            elif transfer[field]:
-                unresolved.append("%s: %s %r" % (transfer["path"], field, transfer[field]))
-        for bridge in transfer["bridges"]:
-            target = concept_ref(bridge)
+            elif bridge[field]:
+                unresolved.append("%s: %s %r" % (bridge["path"], field, bridge[field]))
+        for shared in bridge["via"]:
+            target = concept_ref(shared)
             if target:
-                add_edge(node_id, "bridge", target)
+                add_edge(node_id, "via", target)
             else:
-                unresolved.append("%s: bridge %r" % (transfer["path"], bridge))
-        for gap_slug in transfer["gaps"]:
+                unresolved.append("%s: via %r" % (bridge["path"], shared))
+        for gap_slug in bridge["gaps"]:
             if gap_slug in identity["gaps"]:
                 add_edge(node_id, "addresses", "gap:" + gap_slug)
             else:
-                unresolved.append("%s: gap %r" % (transfer["path"], gap_slug))
-        for paper in transfer["papers"]:
+                unresolved.append("%s: gap %r" % (bridge["path"], gap_slug))
+        for paper in bridge["papers"]:
             if paper in identity["works"]:
                 add_edge(node_id, "evidence-paper", "work:" + paper)
             else:
-                unresolved.append("%s: paper %r" % (transfer["path"], paper))
+                unresolved.append("%s: paper %r" % (bridge["path"], paper))
 
     for slug, brief in sorted(identity["briefs"].items()):
         node_id = "brief:" + slug
@@ -303,7 +303,7 @@ def build_payload(vault):
             "works": len(identity["works"]),
             "claims": len(identity["claims"]),
             "gaps": len(identity["gaps"]),
-            "transfers": len(identity["transfers"]),
+            "bridges": len(identity["bridges"]),
             "briefs": len(identity["briefs"]),
             "confirmations": identity["confirmations"],
             "parse_errors": identity["parse_errors"],
@@ -363,8 +363,13 @@ def load_index(state):
     return json.loads(target.read_text(encoding="utf-8"))
 
 
-def check(vault, state):
-    """(status, detail) where status ∈ absent | stale | fresh."""
+def check(vault, state, verify_payload=True):
+    """(status, detail) where status ∈ absent | stale | fresh.
+
+    ``verify_payload=False`` is the lightweight dispatch check: it still hashes
+    the Vault and validates the index format, but skips reparsing the complete
+    semantic payload. Full status/audit keeps the idempotence verification.
+    """
     document = load_index(state)
     if document is None:
         return "absent", "no index at %s — rebuildable" % (Path(state) / INDEX_RELPATH)
@@ -374,6 +379,11 @@ def check(vault, state):
     served = document["snapshot"]["vault_fingerprint"]
     if current != served:
         return "stale", "index %s != vault %s — rebuild" % (served[:12], current[:12])
+    if not verify_payload:
+        return "fresh", "snapshot %s, payload %s, vault fingerprint verified" % (
+            document["snapshot"]["snapshot_id"],
+            document["payload_fingerprint"][:12],
+        )
     rebuilt = payload_fingerprint(build_payload(vault))
     if rebuilt != document["payload_fingerprint"]:
         return "stale", "payload fingerprint drift (%s != %s)" % (
@@ -408,27 +418,28 @@ def run(argv):
     action.add_argument("--rebuild", action="store_true")
     action.add_argument("--fingerprint", action="store_true")
     action.add_argument("--check", action="store_true")
+    action.add_argument("--check-fast", action="store_true")
     args = parser.parse_args(argv)
     try:
         vault, state, workspace = _roots(args)
         if args.fingerprint:
             print(vault_fingerprint(vault))
             return 0
-        if args.check:
-            status, detail = check(vault, state)
+        if args.check or args.check_fast:
+            status, detail = check(vault, state, verify_payload=not args.check_fast)
             print("%s — %s" % (status, detail))
             return 0 if status == "fresh" else 1
         target, document = write_index(vault, state, workspace)
         report = document["payload"]["identity_report"]
         print("wrote %s" % target)
         print(
-            "works=%d claims=%d gaps=%d transfers=%d briefs=%d "
+            "works=%d claims=%d gaps=%d bridges=%d briefs=%d "
             "confirmations=%d parse_errors=%d unresolved=%d"
             % (
                 report["works"],
                 report["claims"],
                 report["gaps"],
-                report["transfers"],
+                report["bridges"],
                 report["briefs"],
                 len(report["confirmations"]),
                 len(report["parse_errors"]),

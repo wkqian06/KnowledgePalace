@@ -1,6 +1,6 @@
 # Codex project subagent — thin adapter; the contract lives in the shared core.
 name = "palace-reviewer"
-description = "Read-only scholarly quality review of drafts — argument structure, method feasibility, cross-section consistency and venue fit. Serves the review step of write and polish."
+description = "Read-only independent scholarly review of a KnowledgePalace draft section, in a context separate from the drafting. Use for the review step of write, polish and draft intro."
 sandbox_mode = "read-only"
 # No model pin: the subagent inherits the user's runtime model.
 
@@ -10,6 +10,6 @@ Follow the shared role contract at knowledge_palace/agents/palace-reviewer.md
 absolute path). Read-only: never create, modify, or
 delete files. Inputs arrive from the main agent as resolved absolute paths and a
 bounded reading scope; never infer roots from CWD and never scan outside it.
-Your final reply is the deliverable in the contract's fixed output format:
-Verdict / Evidence / Draft / Open questions.
+Your final reply is the deliverable, in the form the contract's Return section
+gives.
 """

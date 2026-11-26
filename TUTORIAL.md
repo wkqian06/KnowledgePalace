@@ -188,7 +188,7 @@ plain prose with source links:
 - Sentences a paper supports cite the card (`[C:smith-2023-emergent]`; go read
   the anchor). Minority evidence sits next to majority evidence.
 - Synthesis and hypotheses are labeled as such and name what they rest on; a
-  hypothesis does not need a Transfer card, and a concept explanation does not
+  hypothesis does not need a bridge card, and a concept explanation does not
   need a Claim.
 - What the library does not cover is stated ("no vault evidence on diversity
   metrics beyond FID") rather than fabricated — and does not block a clearly
@@ -217,8 +217,8 @@ From any ingested paper:
   dry). Works already in your vault are recognized as Vault Hits — their
   edges are recorded, they are never re-ingested.
 - Each candidate gets a scope-bound decision — `selected / deferred /
-  rejected` + reason — from palace-expansion-reviewer (add
-  `--review manual` to decide yourself). Rejections are scoped, never a
+  rejected` + reason — made by the agent within the scope you delegated
+  (add `--review manual` to decide yourself). Rejections are scoped, never a
   global blacklist: the same paper can be selected for another scope later.
 - Interrupted runs resume from checkpoints under `state/expansion/`
   without duplicates.
@@ -236,7 +236,7 @@ Once you have ~10+ papers:
 > /palace brief onboard                 # domain map + 5–8 paper reading path
 > /palace brief gaps                    # ranked open problems, who tried, why unresolved
 > /palace brief map classifier-free-guidance   # one concept's method timeline + disputes
-> /palace brief ideas                   # gap × transfer opportunity cards
+> /palace brief ideas                   # gap × bridge opportunity cards
 > /palace brief progress guidance-schedule   # question evolution, advances, remaining evidence
 ```
 
@@ -255,10 +255,10 @@ by ingest when a paper calls for one):
 > /palace discover gap-guidance-fidelity
 ```
 
-palace-scout returns ≤5 candidate transfer cards, each with ≥2
-**non-stopword** bridges (generic terms like "deep-learning" never count),
+Discover returns ≤5 candidate bridge cards, each with ≥2
+**non-stopword** shared concepts (generic terms like "deep-learning" never count),
 a typed relation, evidence on both sides, and one concrete first validation
-experiment. You select which ones become `transfers/transfer-<slug>.md`.
+experiment. You select which ones become `bridges/bridge-<slug>.md`.
 
 ---
 

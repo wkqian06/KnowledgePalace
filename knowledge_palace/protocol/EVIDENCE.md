@@ -80,7 +80,7 @@ beside the coverage fact in the Gap's synthesis, never as a scientific verdict.
 Bibliographic bands carry the same kind of information under the same limit; see
 PALACE.md.
 
-The graph stores these rows on Gap/Brief/Transfer attributes. `depends_on` edges point to
+The graph stores these rows on Gap/Brief/Bridge attributes. `depends_on` edges point to
 Claims and Gaps. Briefs remain `role=view`, `evidence_capable=false`; they cannot
 emit evidence-bearing edges. Rebuilding the index compares prior evidence and
 new relations, writing `graph-index/synthesis-updates.json` in Derived State.
@@ -88,7 +88,7 @@ Suggestions name affected entries, dependencies and reasons to strengthen,
 narrow, question or retain a judgment; they require evidence review, never
 automatic promotion into facts. A removed relation also triggers review.
 Each Gap synthesis also tracks new evidence targeting its owning Gap; affected
-Gap judgments propagate review suggestions to dependent syntheses. Transfers
+Gap judgments propagate review suggestions to dependent syntheses. Bridge cards
 also track their declared papers and gaps. With the configured workspace,
 maintenance locates affected current project briefs, sections with declared
 `evidence` refs and decisions in `projects/<slug>/research.md`.
@@ -97,14 +97,19 @@ The update file is persistent workflow state. Entries have `pending`, `resolved`
 or `unchanged` status, evidence-change events and dated review decisions.
 Unrelated builds preserve pending entries; new relevant evidence reopens a
 resolved entry. Preserve this file when clearing rebuildable index snapshots.
-Use `research updates` to inspect the queue and `research resolve <node-id>
---entry <id> --decision retain|revise|withdraw --note "<rationale>"` after the
-scientific review and any approved card edits are complete. Resolving a queue
+Use `research updates` to inspect the queue. It lists one row per judgment with
+pending entries; a node ID or ID prefix (`gap:`, `project:<slug>`) as the topic
+lists those entries with their dependencies and the changes that opened them.
+The view keeps to a byte budget: past it, long lists become counts and then rows
+stop, and its note says how many rows are left and how to narrow. `--full`
+prints the whole record. Run `research resolve <node-id> --entry <id> --decision
+retain|revise|withdraw --note "<rationale>"` after the scientific review and any
+approved card edits are complete. Resolving a queue
 entry records that action; it does not edit a scientific judgment.
 
 ## Retrieval and use
 
-Before ask, brief, linker retrieval or viewer/wiki export, call
+Before ask, brief, ingest alignment or viewer/wiki export, call
 `graph.builder.ensure_index(vault, state, workspace)`. This maintains only Derived State.
 The read-only GraphQueryPort serves the maintained snapshot. `ensure_index`
 rebuilds changed Vault content or index formats before constructing it.
@@ -114,17 +119,20 @@ result. Do not silently rewrite approved synthesis from a change detector.
 
 `python -m knowledge_palace.interaction.research progress "<topic>"` implements
 the evidence view for `/palace brief progress <topic>`. `ask`, `gaps` and `ideas`
-produce the same structured research context for the analyst. `--alternative`
+produce the same structured research context for the drafting agent. `--alternative`
 allows at most two explicit query reformulations; all supplied reformulations
 are searched even when the first match pool is full. The combined reading set
 is capped at 15 cards, including current briefs. Matches are ordered by the
 number of query terms they cover; a term carried by a card's own label or a
 concept tag counts before a term found in a Claim, and corridor reach never
-outranks a direct match. Selection uses the latest synthesis per topic/view
+outranks a direct match. Remaining ties go to the card with the larger share of
+matching Claims, so a long card does not win by length alone. Selection uses the latest synthesis per topic/view
 whose evidence is among the leading matches, a representative from each query,
 interleaved Claim dependencies and remaining query matches. A matched Gap also supplies source
-papers. `--json` exposes candidate locators, full anchored Claims, argument
-roles, conditions and evidence relations. Read candidate cards via the port;
+papers. `ask` prints a bounded reading plan: candidate locators, a few anchored
+Claims per work chosen for the query, Gap syntheses and relation triples.
+`--full` exposes all anchored Claims, argument roles, conditions and evidence
+relations. Read candidate cards via the port;
 for decisive or ambiguous evidence, read the card's `local` Source Cache file
 around its cited section/page before judging. Registry Aliases handle Chinese,
 acronyms and named concepts. Match-pool counts precede reading selection and
@@ -137,11 +145,15 @@ and Argument changes count as applicability changes for the owning work's Claims
 including when the paper has no explicit Evidence relation edge.
 
 Current synthesis remains a view: retrieve its underlying Claims before using
-its conclusion. `cross_domain` lists up to three additional source locators
-through selected works' shared functions, patterns or failure modes, including
-when the initial question names only one domain. These are reading proposals,
-outside the consumed evidence set; apply PALACE hub exclusions and compare
-assumptions before asserting a transfer. Prior proposals are not evidence.
+its conclusion. `bridges.candidates` lists up to three works that share a pattern,
+function or failure mode with the reading set and have a domain that none of the
+reading-set papers sharing that concept has, including when the initial question
+names only one domain. Concepts the question
+reached come first, then rarer concepts; each concept yields at most one work, and
+a row exists only when a Claim on each side binds the shared concept. Hub
+stopwords never count. These are reading proposals, outside the consumed evidence
+set; compare assumptions before asserting a bridge. `bridges.cards` lists saved
+bridge cards with an edge to the reading set. Prior proposals are not evidence.
 
 `--project <slug>` adds the existing project brief, research notes, materials,
 observation feedback and explicitly selected style profiles. Use the project

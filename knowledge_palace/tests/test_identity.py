@@ -28,7 +28,7 @@ class TestCleanFixture(unittest.TestCase):
         self.assertEqual(len(self.identity["works"]), 3)
         self.assertEqual(len(self.identity["claims"]), 4)
         self.assertEqual(len(self.identity["gaps"]), 2)
-        self.assertEqual(len(self.identity["transfers"]), 1)
+        self.assertEqual(len(self.identity["bridges"]), 1)
         self.assertEqual(len(self.identity["briefs"]), 1)
         self.assertEqual(len(self.identity["domains"]), 2)
 

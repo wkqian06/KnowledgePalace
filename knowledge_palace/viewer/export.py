@@ -5,7 +5,7 @@ scan, never Source Cache. Level, child and edge pagination is followed to
 completion via the port's separate cursors. Sibling pages remain bounded;
 hierarchy levels and child/edge walks supply graph reachability.
 
-Some node kinds (e.g. ``transfer``, ``brief``) have no parent and are
+Some node kinds (e.g. ``bridge``, ``brief``) have no parent and are
 nobody's child — the hierarchy levels and children/siblings links never
 surface them. They are reachable only as an edge endpoint on some other
 node's ``edges`` list, so the walk schedules BOTH endpoints of every
@@ -181,8 +181,9 @@ def citation_overlay(payload, state):
     or empty cache yields an empty overlay. Coverage is whatever the cache
     holds (``/palace refresh`` / expansion runs populate it).
     """
-    cache_dir = Path(state) / CACHE_DIRNAME / "openalex"
-    if not cache_dir.is_dir():
+    cache_root = Path(state) / CACHE_DIRNAME
+    cache_dir = cache_root / "openalex"
+    if not cache_dir.is_dir() and not (cache_root / "semanticscholar").is_dir() and not (cache_root / "crossref").is_dir():
         return {"edges": []}
 
     work_by_doi = {}
@@ -203,20 +204,46 @@ def citation_overlay(payload, state):
         cleaned = _clean_doi(raw)
         return cleaned.rstrip(".") if cleaned else None
 
+    def arxiv_doi(raw):
+        # "https://arxiv.org/abs/2202.04200v2", "2202.04200" → the arXiv DOI form used by cards
+        match = re.search(r"(\d{4}\.\d{4,5})", str(raw or ""))
+        return "10.48550/arxiv." + match.group(1) if match else None
+
+    def read_entries(directory):
+        entries = []
+        if not directory.is_dir():
+            return entries
+        for path in sorted(directory.glob("*.json")):
+            try:
+                entry = json.loads(path.read_text(encoding="utf-8"))
+            except ValueError as err:
+                raise ValueError("corrupt bibliographic cache entry %s: %s" % (path, err))
+            entries.append((entry.get("url") or "", entry.get("payload") or {}))
+        return entries
+
+    def openalex_node(url, record):
+        # OpenAlex merges an arXiv preprint into its published version, so the
+        # payload DOI can differ from the card's arXiv DOI; the request URL and
+        # the arXiv id still identify the card.
+        candidates = [norm_cache_doi(record.get("doi"))]
+        requested = re.search(r"/works/doi:(.+)$", url)
+        if requested:
+            candidates.append(norm_cache_doi(requested.group(1)))
+        candidates.append(arxiv_doi((record.get("ids") or {}).get("arxiv")))
+        for doi in candidates:
+            if doi and doi in work_by_doi:
+                return work_by_doi[doi]
+        return None
+
     work_by_oa_id = {}
     refs_by_work = {}
-    entries = []
-    for path in sorted(cache_dir.glob("*.json")):
-        try:
-            record = json.loads(path.read_text(encoding="utf-8")).get("payload") or {}
-        except ValueError as err:
-            raise ValueError("corrupt bibliographic cache entry %s: %s" % (path, err))
-        entries.append(record)
-        node_id = work_by_doi.get(norm_cache_doi(record.get("doi")))
+    entries = read_entries(cache_dir)
+    for url, record in entries:
+        node_id = openalex_node(url, record)
         if node_id and record.get("id"):
             work_by_oa_id[record["id"]] = node_id
-    for record in entries:
-        node_id = work_by_doi.get(norm_cache_doi(record.get("doi")))
+    for url, record in entries:
+        node_id = openalex_node(url, record)
         if node_id and record.get("referenced_works"):
             refs_by_work[node_id] = record["referenced_works"]
 
@@ -224,6 +251,46 @@ def citation_overlay(payload, state):
     for source_id, referenced in refs_by_work.items():
         for oa_id in referenced:
             target_id = work_by_oa_id.get(oa_id)
+            if target_id and target_id != source_id:
+                edges.add((source_id, target_id))
+
+    def doi_target(doi=None, arxiv=None):
+        for key in (norm_cache_doi(doi), arxiv_doi(arxiv) if arxiv else None):
+            if key and key in work_by_doi:
+                return work_by_doi[key]
+        return None
+
+    # Semantic Scholar reference lists fill in works whose OpenAlex record
+    # carries no references (common for arXiv preprints).
+    for url, record in read_entries(cache_root / "semanticscholar"):
+        requested = re.search(r"/paper/([^/?]+)/references", url)
+        if not requested:
+            continue
+        paper_id = requested.group(1)
+        if paper_id.upper().startswith("DOI:"):
+            source_id = doi_target(doi=paper_id[4:])
+        elif paper_id.upper().startswith("ARXIV:"):
+            source_id = doi_target(arxiv=paper_id[6:])
+        else:
+            source_id = None
+        if not source_id:
+            continue
+        for item in record.get("data") or []:
+            external = (item.get("citedPaper") or {}).get("externalIds") or {}
+            target_id = doi_target(external.get("DOI"), external.get("ArXiv"))
+            if target_id and target_id != source_id:
+                edges.add((source_id, target_id))
+
+    # Crossref deposits reference DOIs for many journal articles (e.g. AMS).
+    for url, record in read_entries(cache_root / "crossref"):
+        message = record.get("message") or {}
+        if not isinstance(message, dict) or not message.get("reference"):
+            continue
+        source_id = doi_target(doi=message.get("DOI"))
+        if not source_id:
+            continue
+        for item in message["reference"]:
+            target_id = doi_target(doi=item.get("DOI"))
             if target_id and target_id != source_id:
                 edges.add((source_id, target_id))
     return {"edges": [list(pair) for pair in sorted(edges)]}

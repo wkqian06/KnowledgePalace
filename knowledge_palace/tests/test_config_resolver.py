@@ -65,6 +65,18 @@ class TestParser(unittest.TestCase):
 
 
 class TestResolution(unittest.TestCase):
+    def test_nearest_library_config_is_used_from_project_directory(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            for name in ('vault', 'state', 'source', 'workspace'):
+                (root / name).mkdir()
+            (root / '.palace.toml').write_text(''.join(f'{name}_dir = "{name}"\n' for name in ('vault', 'state', 'source', 'workspace')), encoding='utf-8')
+            project = root / 'workspace' / 'projects' / 'demo'
+            project.mkdir(parents=True)
+            with chdir(project):
+                self.assertEqual(resolve_roots()['vault_dir'], (root / 'vault').resolve())
+                self.assertEqual(resolve_roots(PLAIN_CONFIG), resolve_roots(PLAIN_CONFIG.resolve()))
+
     def test_identical_from_framework_nested_and_tmp(self):
         expected = resolve_roots(PLAIN_CONFIG)
         with tempfile.TemporaryDirectory() as td:

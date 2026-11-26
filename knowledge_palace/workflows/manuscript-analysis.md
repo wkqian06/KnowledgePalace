@@ -78,6 +78,19 @@ handing over a new chain. Read the page, take the paragraphs to rewrite from
 `changed_paragraphs(graph, written)`, rewrite only those, and write the page
 again with `written` set to the graph the new text follows.
 
+## When the author supplies a new draft
+
+A supplied revision reverses the order: the graph is derived from the text, not
+the text from the graph. Read the latest revision, split it into paragraphs, and
+for each paragraph state its point, role, opening and landing, the node chain and
+links, the citations it already carries, and whether it advances or stands
+parallel to the previous paragraph. Write that graph to the section page and
+leave the text as written from it; do not rewrite the prose in the same pass.
+Report what does not hold — a missing opening or landing, a broken link, a
+paragraph with no citation, or an unclear relation between paragraphs — as
+findings for the review. If the draft arrives in conversation, save it as the
+next revision (append-only, after confirmation) before analysing it.
+
 ## The author's decisions and corrections
 
 Record what the author decides for this manuscript: what a section argues, what

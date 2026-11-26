@@ -8,8 +8,8 @@ import unittest
 from pathlib import Path
 
 from knowledge_palace.graph.builder import build_payload, write_index
-from knowledge_palace.interaction.research_helpers import research_context, cross_domain_candidates
-from knowledge_palace.semantic.update_helpers import load_updates, resolve_update
+from knowledge_palace.interaction.research_helpers import research_context, bridge_candidates
+from knowledge_palace.semantic.update_helpers import load_updates, resolve_update, review_queue
 from knowledge_palace.tests.test_research import MINI, ARGUMENT, SYNTHESIS
 from knowledge_palace.workspace.project import create_project, new_project
 from knowledge_palace.workspace.research_helpers import project_context
@@ -109,7 +109,7 @@ class TestContinuity(unittest.TestCase):
         self.assertEqual(len(row["reviews"]), 1)
         self.assertEqual(len(row["events"]), 2)
 
-    def test_evidence_change_reaches_transfer_project_and_section(self):
+    def test_evidence_change_reaches_bridge_project_and_section(self):
         project = create_project(self.workspace, new_project("echo-study", "paper", "researchers"))
         ref = "claim:alpha-2020-echo#C1"
         (project / "outline/brief.json").write_text(json.dumps({"evidence": [{"ref": ref}],
@@ -123,7 +123,7 @@ class TestContinuity(unittest.TestCase):
         self.assertIn(("project:echo-study", "argument"), affected)
         self.assertIn(("project:echo-study", "section:discussion"), affected)
         self.assertIn(("project:echo-study", "decision:S1"), affected)
-        self.assertTrue(any(nid.startswith("transfer:") for nid, entry in affected))
+        self.assertTrue(any(nid.startswith("bridge:") for nid, entry in affected))
 
     def test_project_observation_and_selected_style_remain_distinct_from_claims(self):
         project = create_project(self.workspace, new_project("echo-study", "paper", "beginner in echo analysis"))
@@ -145,12 +145,72 @@ class TestContinuity(unittest.TestCase):
         self.assertIn("Background: signal", context["research_notes"])
 
     def test_one_domain_seed_suggests_a_foreign_function_match(self):
-        payload = build_payload(self.vault)
         selected = {"work:alpha-2020-echo"}
-        candidates = cross_domain_candidates(payload, selected)
-        self.assertTrue(candidates)
-        self.assertTrue(any(row["node_id"] == "work:beta-2021-foxtrot" for row in candidates))
-        self.assertLessEqual(len(candidates), 3)
+        self.assertEqual(bridge_candidates(build_payload(self.vault), selected), [])  # no binding Claims yet
+        for name, old, new in (("alpha-2020-echo", "- C2:", "- C2 [concept-shared-pattern]:"),
+                               ("beta-2021-foxtrot", "- C1:", "- C1 [concept-shared-pattern]:")):
+            card = self.vault / "papers" / (name + ".md")
+            card.write_text(card.read_text(encoding="utf-8").replace(old, new), encoding="utf-8")
+        candidates = bridge_candidates(build_payload(self.vault), selected)
+        self.assertEqual([row["node_id"] for row in candidates], ["work:beta-2021-foxtrot"])
+        self.assertEqual(candidates[0]["local_claim"]["id"], "claim:alpha-2020-echo#C2")
+        self.assertEqual(candidates[0]["claim"]["quote"], '"Thresholds drift under beta regimes."')
+
+    def test_bridge_candidates_prefer_topic_then_rare_concepts(self):
+        nodes = {"domain:home": {"kind": "domain"}, "domain:far": {"kind": "domain"}}
+        parents, edges = {}, []
+        for wid, domain in (("L", "home"), ("F1", "far"), ("F2", "far"), ("F3", "far"),
+                            ("F4", "far"), ("X1", "far"), ("X2", "far"), ("X3", "far")):
+            nodes["work:" + wid] = {"kind": "work", "canonical_ref": {"path": "papers/%s.md" % wid}}
+            parents["work:" + wid] = ["domain:" + domain]
+        # concept: (attached works, works whose C<n> binds it)
+        concepts = {"common": (["L", "F1", "X1", "X2"], [("L", 1), ("F1", 1)]),
+                    "rare": (["L", "F2"], [("L", 2), ("F2", 1)]),
+                    "unbound": (["L", "F3"], [("L", 3)]),
+                    "topic": (["L", "F4", "X1", "X2", "X3"], [("L", 4), ("F4", 1)])}
+        for slug, (attached, bound) in concepts.items():
+            nodes["concept:" + slug] = {"kind": "concept", "attrs": {"axis": "pattern"}}
+            edges.extend({"kind": "tag:pattern", "from": "work:" + w, "to": "concept:" + slug} for w in attached)
+            for work, n in bound:
+                cid = "claim:%s#C%d" % (work, n)
+                nodes[cid] = {"kind": "claim", "attrs": {"quote": "%s on %s" % (work, slug), "anchor": "p.1"}}
+                parents[cid] = ["work:" + work]
+                edges.append({"kind": "binds", "from": cid, "to": "concept:" + slug})
+        payload = {"nodes": nodes, "parents": parents, "edges": edges}
+        rows = bridge_candidates(payload, {"work:L"}, ["claim:claim:L#C4 (term:topic)"])
+        self.assertEqual([(row["node_id"], row["via"]) for row in rows],
+                         [("work:F4", "concept:topic"), ("work:F2", "concept:rare"), ("work:F1", "concept:common")])
+        self.assertEqual(rows[1]["local_claim"]["quote"], "L on rare")
+        self.assertEqual(rows[1]["claim"]["quote"], "F2 on rare")
+        # A far-domain reading-set paper that shares none of these concepts leaves
+        # the far side foreign for them.
+        nodes["work:Y"] = {"kind": "work", "canonical_ref": {"path": "papers/Y.md"}}
+        parents["work:Y"] = ["domain:far"]
+        self.assertEqual(bridge_candidates(payload, {"work:L", "work:Y"}, ["claim:claim:L#C4 (term:topic)"]), rows)
+
+
+class TestReviewQueue(unittest.TestCase):
+    def test_every_pending_entry_is_listed_or_counted_never_dropped_silently(self):
+        row = lambda node, entry, **extra: {"node_id": node, "entry": entry, "affected": True,
+                                            "suggestions": ["review scope"], "dependencies": ["claim:p#C1"] * 40,
+                                            "changed_nodes": ["claim:p#C1"], "changed_edges": [], **extra}
+        document = {"entries": [row("gap:a", "S1"), row("gap:a", "S2", suggestions=["review scope", "question it"]),
+                                row("gap:b", "S1"), row("project:x", "D1"),
+                                row("project:y", "D1", status="resolved"), row("brief:z", "S1", affected=False)]}
+        overview = review_queue(document)
+        self.assertEqual((overview["pending_entries"], overview["by_kind"]), (4, {"gap:": 3, "project:": 1}))
+        self.assertEqual(overview["rows"][0], {"node_id": "gap:a", "entries": ["S1", "S2"],
+                                               "suggestions": ["review scope", "question it"]})
+        self.assertEqual([r["node_id"] for r in overview["rows"]], ["gap:a", "gap:b", "project:x"])
+        detail = review_queue(document, "gap:a")
+        self.assertEqual([(r["entry"], len(r["dependencies"])) for r in detail["rows"]], [("S1", 40), ("S2", 40)])
+        # Over the budget the lists become counts, then the rows stop, and the note says so.
+        counted = review_queue(document, "gap:", budget=1000)
+        self.assertEqual([r["dependencies"] for r in counted["rows"]], [40, 40, 40])
+        self.assertIn("counted", counted["note"])
+        cut = review_queue(document, "gap:", budget=300)
+        self.assertEqual(len(cut["rows"]), 2)
+        self.assertIn("Showing 2 of 3 rows", cut["note"])
 
 
 if __name__ == "__main__":

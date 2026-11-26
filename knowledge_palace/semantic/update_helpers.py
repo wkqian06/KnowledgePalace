@@ -2,6 +2,7 @@
 
 import copy
 import json
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from .evidence_helpers import read_tables, dependencies, changed_evidence_nodes
@@ -40,6 +41,51 @@ def merge_updates(previous, changes, snapshot):
 def load_updates(state):
     path = Path(state) / UPDATE_PATH
     return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {"entries": []}
+
+
+def review_queue(document, prefix="", budget=24000):
+    """The pending reviews as a view that fits ``budget`` bytes of compact JSON.
+
+    Without a prefix there is one row per judgment (node) with its pending entries
+    and their suggestions. A node ID or an ID prefix (``gap:``, ``project:<slug>``)
+    lists those entries with their dependencies and the evidence changes that
+    opened them. Rows over the budget first lose their lists to counts, then stop;
+    the note then says how many rows are left and how to narrow, so nothing is
+    dropped silently.
+    """
+    pending = [row for row in document["entries"]
+               if row.get("status", "pending" if row["affected"] else "unchanged") == "pending"
+               and row["node_id"].startswith(prefix)]
+    size = lambda value: len(json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+    if prefix:
+        rows = [{key: row[key] for key in ("node_id", "entry", "suggestions", "dependencies",
+                                           "changed_nodes", "changed_edges")} for row in pending]
+        note = "Pending entries under %s with their dependencies and the evidence changes that opened them." % prefix
+        if size(rows) > budget:
+            rows = [{**row, **{key: len(row[key]) for key in ("dependencies", "changed_nodes", "changed_edges")}}
+                    for row in rows]
+            note += " The lists are counted here because they exceed the byte budget; narrow the prefix to see them."
+    else:
+        nodes = {}
+        for row in pending:
+            node = nodes.setdefault(row["node_id"], {"node_id": row["node_id"], "entries": [], "suggestions": []})
+            node["entries"].append(row["entry"])
+            node["suggestions"] += [text for text in row["suggestions"] if text not in node["suggestions"]]
+        rows = list(nodes.values())
+        note = ("One row per judgment with pending reviews. Pass a node ID, or an ID prefix such as gap:, "
+                "brief: or project:<slug>, as the topic for its entries with their dependencies and the "
+                "evidence changes that opened them.")
+    shown, used = [], 0
+    for row in rows:
+        used += size(row) + 1
+        if used > budget:
+            break
+        shown.append(row)
+    if len(shown) < len(rows):
+        note += " Showing %d of %d rows within the byte budget; narrow with an ID prefix to see the rest." % (
+            len(shown), len(rows))
+    kinds = Counter(row["node_id"].split(":", 1)[0] + ":" for row in pending)
+    return {"pending_entries": len(pending), "by_kind": dict(kinds), "rows": shown, "note": note}
 
 
 def resolve_update(state, node_id, entry, decision, note):

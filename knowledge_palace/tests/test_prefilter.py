@@ -9,9 +9,9 @@ from knowledge_palace.interaction.prefilter import (
     CANDIDATE_CAP,
     extract_terms,
     find_candidates,
-    match_rank,
+    rank_matches,
 )
-from knowledge_palace.semantic.corridors import _domain_resolver
+from knowledge_palace.semantic.corridors import domain_resolver
 from knowledge_palace.tests.test_semantic_corridors import synthetic_dense_payload
 
 MINI = Path(__file__).resolve().parent / "fixtures" / "vault-mini"
@@ -28,13 +28,20 @@ class TestTerms(unittest.TestCase):
 
 
 class TestRank(unittest.TestCase):
-    def test_coverage_beats_corridors(self):
-        both_terms = match_rank("work:b", {"term:cold", "claim:b#C1 (term:pool)"})
-        one_term = match_rank("work:a", {"claim:a#C1 (term:pool)"} | {"corridor:concept:x%d" % n for n in range(18)})
-        self.assertLess(both_terms, one_term)
-        tagged = match_rank("work:d", {"concept:concept:cold-pool (term:cold)"})
-        quoted = match_rank("work:c", {"claim:c#C1 (term:cold)", "claim:c#C2 (term:cold)"})
-        self.assertLess(tagged, quoted)
+    def test_coverage_beats_corridors_and_tags_beat_quotes(self):
+        matches = {"work:a": {"claim:a#C1 (term:pool)"} | {"corridor:concept:x%d" % n for n in range(18)},
+                   "work:b": {"term:cold", "claim:b#C1 (term:pool)"}}
+        self.assertEqual(rank_matches({"parents": {}}, matches), ["work:b", "work:a"])
+        matches = {"work:c": {"claim:c#C1 (term:cold)", "claim:c#C2 (term:cold)"},
+                   "work:d": {"concept:concept:cold-pool (term:cold)"}}
+        self.assertEqual(rank_matches({"parents": {}}, matches), ["work:d", "work:c"])
+
+    def test_claim_share_breaks_ties_not_card_length(self):
+        parents = {"claim:long#C%d" % n: ["work:long"] for n in range(1, 11)}
+        parents.update({"claim:short#C1": ["work:short"], "claim:short#C2": ["work:short"]})
+        matches = {"work:long": {"term:cold", "claim:claim:long#C1 (term:cold)", "claim:claim:long#C2 (term:cold)"},
+                   "work:short": {"term:cold", "claim:claim:short#C1 (term:cold)"}}
+        self.assertEqual(rank_matches({"parents": parents}, matches), ["work:short", "work:long"])
 
 
 class TestVaultMiniRetrieval(unittest.TestCase):
@@ -62,7 +69,7 @@ class TestVaultMiniRetrieval(unittest.TestCase):
     def test_cross_domain_reach_via_corridors(self):
         candidates = find_candidates(self.payload, "shared pattern bridging")
         ids = {c["node_id"] for c in candidates}
-        domains_of = _domain_resolver(self.payload)
+        domains_of = domain_resolver(self.payload)
         touched = set()
         for node_id in ids:
             touched |= domains_of(node_id)

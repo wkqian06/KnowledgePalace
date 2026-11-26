@@ -90,7 +90,7 @@ class TestVaultMiniWalk(ExportCase):
         # not a walk defect.
         self.assertEqual(sum(kinds.values()), 19)
         self.assertNotIn("brief", kinds)
-        self.assertEqual(kinds.get("transfer"), 1)  # edge-only reachable
+        self.assertEqual(kinds.get("bridge"), 1)  # edge-only reachable
 
     def test_deterministic(self):
         state = self.root / "state"
@@ -129,7 +129,7 @@ class TestVaultMiniWalk(ExportCase):
             self.assertNotIn("siblings", slim)
         # Cards keep their text; the registry is not copied once per concept.
         kinds = {full["nodes"][node_id]["kind"] for node_id in lean["contents"]}
-        self.assertEqual(kinds, {"work", "gap", "transfer"})
+        self.assertEqual(kinds, {"work", "gap", "bridge"})
         for node_id, content in lean["contents"].items():
             self.assertEqual(content, full["contents"][node_id])
         self.assertLess(len(canonical_bytes(lean)), len(canonical_bytes(full)))

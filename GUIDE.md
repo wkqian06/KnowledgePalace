@@ -36,12 +36,15 @@ Three kinds of actor operate on this layout:
 
 1. **The main agent** — the LLM you talk to (Claude Code or Codex). It reads
    the requested workflow under `knowledge_palace/workflows/`, resolves the
-   roots, reads bounded evidence, may delegate reading or drafting to a
-   specialist, audits decisive evidence, and performs every authorized write
-   itself.
-2. **Nine optional read-only specialists** — extractor, linker, scout,
-   auditor, analyst, stylist, expansion-reviewer, writer, reviewer. They are
-   called when useful, never as a fixed sequence; they only read, grep and
+   roots, reads bounded evidence, audits decisive evidence, may hand a long
+   reading, an independent audit or review, or style curation to a subagent,
+   and performs every authorized write itself.
+2. **Four optional read-only subagents** — extractor (paper reading),
+   auditor (source audit), reviewer (writing review) and stylist (style
+   curation). Each covers a step that gains from a separate context: a long or
+   parallel reading, an independent check, or a batch of style readings. They
+   are called when useful, never as a fixed sequence, and without them the main
+   agent performs the step under the same contract. They only read, grep and
    list files, receive resolved paths and a bounded reading scope, and never
    write. Their platform-neutral contracts live in `knowledge_palace/agents/`;
    `.claude/agents/` and `.codex/agents/` are thin adapters.
@@ -77,13 +80,13 @@ KnowledgePalace/
 ├── .palace.example.toml       # template for your local .palace.toml (git-ignored)
 ├── .claude/                   # Claude Code runtime adapter
 │   ├── skills/palace/SKILL.md    # entry point: routes /palace here
-│   └── agents/palace-*.md                  # 9 subagent adapters (Read/Grep/Glob only)
+│   └── agents/palace-*.md                  # 4 subagent adapters (Read/Grep/Glob only)
 ├── .agents/ + .codex/         # Codex runtime adapter (same shape)
 └── knowledge_palace/          # the platform-neutral shared core
     ├── protocol/              # PROTOCOL.md · COMMANDS.md · EVIDENCE.md · GRAPH_QUERY_PORT.md
     ├── workflows/             # collection · ingest · discussion · manuscript-analysis · writing · feasibility
-    ├── agents/                # 9 platform-neutral role contracts (optional specialists)
-    ├── templates/             # paper/gap/transfer/style/INDEX/expansion-run/project-research templates
+    ├── agents/                # 4 platform-neutral subagent contracts (optional)
+    ├── templates/             # paper/gap/bridge/style/INDEX/expansion-run/project-research templates
     ├── tools/                 # config_resolver
     ├── graph/                 # Graph Index: identity · builder · port (GraphQueryPort)
     ├── metadata/              # providers · cache · impact · refresh (bibliographic data)
@@ -96,7 +99,7 @@ KnowledgePalace/
 ```
 
 Rule of thumb: `protocol/` says *what must hold*, `workflows/` says *how a
-task runs*, `agents/` says *what a specialist may draft*, the Python packages
+task runs*, `agents/` says *what a subagent may return*, the Python packages
 *implement the deterministic parts*, and the runtime adapters only *route* —
 they never duplicate protocol text.
 
@@ -117,7 +120,7 @@ vault/
 ├── concepts.md                # concept registry: 7 axis sections, controlled vocabulary
 ├── papers/    INDEX.md + <firstauthor>-<year>-<titleword>.md
 ├── gaps/      INDEX.md + gap-<slug>.md
-├── transfers/ transfer-<slug>.md
+├── bridges/   bridge-<slug>.md
 ├── briefs/    <YYYY-MM-DD>-<view>.md          # dated, disposable views — never evidence
 ├── styles/    bank/<slug>.md + profiles/<journal-*|lang-*>.md
 ├── expansions/<run-id>.md                     # compact expansion-run records
@@ -128,7 +131,7 @@ vault/
   `weight` with its derivation persisted inline, 7 concept-axis arrays,
   gap relations, optional reproducibility fields `code/data/compute/
   code_usage`) and a body of Summary / Claims (verbatim + anchor) /
-  Limitations & gaps / Transfer notes. The `local:` pointer is
+  Limitations & gaps / Bridge notes. The `local:` pointer is
   `source_dir`-relative — full text never lives in the Vault.
 - **Gap cards** hold a typed status (`open / partially-addressed / disputed /
   reframed / closed`), a relations table (Paper | Relation | Weight |
@@ -191,7 +194,7 @@ matches surface as user confirmations, never silent merges.
 
 `domain` and `task` are per-domain subtrees; `pattern`, `function`,
 `method`, `metric`, `failure-mode` are shared across domains. Cross-domain
-connections exist **only** as shared-axis co-tagging, transfer cards, or gap
+connections exist **only** as shared-axis co-tagging, bridge cards, or gap
 `related:` links — never as `Parents` edges between domain subtrees.
 `concepts.md` is a controlled vocabulary: cards use canonical slugs only,
 new concepts start as `candidate` and are promoted at ≥3 genuine-use
@@ -221,7 +224,7 @@ Every brief, answer or draft keeps four kinds of statement apart:
 |---|---|
 | `[C:slug]` | a paper states it — the quote + anchor is in the cited card |
 | `[S]` | synthesis or inference; it names the cards it rests on (one card can suffice) |
-| `[H]` | hypothesis pending validation; a Transfer card is cited when one exists |
+| `[H]` | hypothesis pending validation; a bridge card is cited when one exists |
 | background / user | general explanation or your own observation, labeled as such |
 
 The auditor, when asked, checks that a `[C]` has a verifiable anchor and that a
@@ -257,19 +260,18 @@ what each command is *for* and what it *writes*:
 
 | Command | What you get |
 |---|---|
-| `/palace status` | live counts (papers/gaps/transfers/briefs/styles/concepts/domains) + consistency checks (INDEX↔file parity, orphan tags) |
+| `/palace status` | live counts (papers/gaps/bridges/briefs/styles/concepts/domains) + consistency checks (INDEX↔file parity, orphan tags) |
 | `/palace brief onboard [<domain>]` | concept-tree map, core vocabulary, a 5–8 paper reading path |
 | `/palace brief map <concept>` | chronological method timeline, established conclusions with context, disputes side by side |
 | `/palace brief progress <topic>` | question evolution, claimed advances, disputes, remaining subquestions and evidence coverage |
 | `/palace brief gaps [<domain>]` | open/disputed gaps ranked qualitatively: who tried, why unresolved, open subquestions |
-| `/palace brief ideas [<domain>]` | opportunity cards: gap × transfer → hypothesis, grounds, risks, minimal validation experiment |
-| `/palace brief transfers [<domain>]` | the transfer radar by status |
-| `/palace brief bridges [<a> <b>]` | domain-pair connection report; no args → full cross-domain matrix |
+| `/palace brief ideas [<domain>]` | opportunity cards: gap × bridge → hypothesis, grounds, risks, minimal validation experiment |
+| `/palace brief bridges [<a> <b>]` | bridge cards by status and the domain-pair connection report; no args → full cross-domain matrix |
 | `/palace ask <question>` | explanation, comparison or continuing discussion (see §6); library statements cite Claims, background and hypotheses are labeled; collects and ingests literature when that would change the answer, then resumes |
 | `/palace research <project>` | project research notes: questions, working definitions, decisions, constraints, material-linked observations; updated when you ask to keep a discussion |
 | `/palace updates` · `updates resolve <node> <entry>` | judgments whose declared evidence changed at index maintenance · record your review (retain / revise / withdraw) |
 | `/palace feasibility <idea\|file\|project>` | feasible / feasible once stated conditions are met / design needs revision / cannot be judged yet, with decisive conditions and the smallest useful pilot; scientific identifiability separated from operational feasibility |
-| `/palace discover [<target>]` | ≤5 transfer candidates, each with ≥2 non-stopword bridges, typed relation, two-sided evidence, one validation experiment |
+| `/palace discover [<target>]` | ≤5 bridge candidates, each with ≥2 non-stopword shared concepts, typed relation, two-sided evidence, one validation experiment |
 | `/palace idea refine <text\|file>` | IdeaAssessment: evidence for/against/unknown, closest prior work, falsifiers + minimal experiment; novelty vault-relative on your confirmed profile dimensions |
 
 Briefs, saved asks and idea assessments land in `briefs/<date>-….md` after your
@@ -301,18 +303,24 @@ evidence themselves. Discussion outcomes you want to keep go into the project's
 `/palace ask` follows `knowledge_palace/workflows/discussion.md`:
 
 1. It starts from your question, your definitions, prior project decisions and
-   any material you supplied; nothing requires a Gap or Transfer card first.
+   any material you supplied; nothing requires a Gap or bridge card first.
 2. It chooses what the question needs: background explanation, paper evidence,
    a cross-paper comparison, a tentative explanation or a research decision.
 3. For library evidence it runs
-   `python3 -m knowledge_palace.interaction.research ask "<topic>" --json`,
-   which returns a bounded context (≤15 candidates, Claims, relations,
-   current syntheses, pending updates); the whole Vault never enters a prompt.
-   Decisive Claims are read in their source context.
+   `python3 -m knowledge_palace.interaction.research ask "<topic>"`, which
+   returns a bounded reading plan (≤15 candidates, a few Claims per work,
+   relations, current syntheses, pending updates); the whole Vault never enters
+   a prompt. The rest of a work's Claims are read on its card, and decisive
+   Claims in their source context.
 4. Library-backed sentences cite Claims; background explanation, hypotheses and
    your observations are labeled. Missing coverage is stated, not fabricated,
    and never blocks a clearly labeled explanation.
-5. When more literature would change the answer and the request allows it,
+5. The same context lists up to three bridge candidates (papers from other
+   domains that share a pattern, function or failure mode with the reading
+   set, each with the binding Claim on both sides) and the saved bridge cards
+   that touch it. A candidate is raised only when the shared mechanism bears on
+   your question, as a labeled hypothesis with the condition it depends on.
+6. When more literature would change the answer and the request allows it,
    Palace runs `init`/`expand`, ingests what you select, and continues the same
    question with the new Claims. On "keep this", the working definitions,
    decisions, alternatives and next action go into the project's `research.md`.
@@ -328,7 +336,7 @@ python3 -m knowledge_palace.graph.builder --check     # is the index fresh / sta
 python3 -m knowledge_palace.metadata.refresh --kind citations --scope all       # cache-only; add --live for network
 python3 -m knowledge_palace.viewer.cli [output.html] [--config <toml>]          # viewer export build step
 python3 -m knowledge_palace.viewer.obsidian [dir] [--config <toml>]             # Obsidian hub export
-python3 -m knowledge_palace.interaction.research ask "<topic>" --json           # bounded research context
+python3 -m knowledge_palace.interaction.research ask "<topic>"                  # bounded reading plan (--full: whole context)
 python3 -m knowledge_palace.interaction.research progress "<topic>"            # progress view
 python3 -m knowledge_palace.interaction.research updates                        # judgments awaiting review
 ```
@@ -354,7 +362,7 @@ python3 -m pytest knowledge_palace/tests -q   # a few seconds
 
 - **New domain**: `/palace domain add` — no code, just registry + subtree.
 - **New runtime**: add a thin adapter that routes to
-  `knowledge_palace/protocol/` and `workflows/` and binds the nine role
+  `knowledge_palace/protocol/` and `workflows/` and binds the four role
   contracts; adapters never duplicate protocol bodies.
 - **New dependency**: there are none, deliberately; adding one requires a
   named material-risk gate (see `CLAUDE.md`).

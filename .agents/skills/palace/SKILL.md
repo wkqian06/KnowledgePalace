@@ -23,6 +23,6 @@ Use existing authorized scope; collection includes selected-paper ingestion and
 reading updates the knowledge card. Polishing requires manuscript analysis.
 
 The main agent owns writes and can run a workflow directly. Optional read-only
-specialists use `knowledge_palace/agents/palace-<role>.md`; runtime adapters point
-to those files. Give delegates resolved paths and bounded inputs. No fixed role
+subagents (extractor, auditor, reviewer, stylist) use
+`knowledge_palace/agents/palace-<role>.md`; runtime adapters point to those files. Give delegates resolved paths and bounded inputs. No fixed role
 sequence is required. Do not execute Git writes.

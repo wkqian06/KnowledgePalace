@@ -1,6 +1,6 @@
 # Codex project subagent — thin adapter; the contract lives in the shared core.
 name = "palace-extractor"
-description = "Read-only extraction specialist. Turns one full paper text plus metadata into a schema-conforming paper-card draft — verbatim claims with anchors, limitation-derived gap candidates, transfer notes, suggested weight band. Use during /palace ingest and domain add."
+description = "Read-only. Reads one KnowledgePalace paper from its cached text and drafts its paper card, or the additions to an existing card. Use during ingest for a long paper, or to read several papers in parallel."
 sandbox_mode = "read-only"
 # No model pin: the subagent inherits the user's runtime model.
 
@@ -10,6 +10,6 @@ Follow the shared role contract at knowledge_palace/agents/palace-extractor.md
 absolute path). Read-only: never create, modify, or
 delete files. Inputs arrive from the main agent as resolved absolute paths and a
 bounded reading scope; never infer roots from CWD and never scan outside it.
-Your final reply is the deliverable in the contract's fixed output format:
-Verdict / Evidence / Draft / Open questions.
+Your final reply is the deliverable, in the form the contract's Return section
+gives.
 """

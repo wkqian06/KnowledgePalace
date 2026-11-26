@@ -14,7 +14,7 @@ and external-novelty statements validate only under a recorded opt-in request.
 
 from itertools import combinations
 
-from ..semantic.corridors import _domain_resolver, find_corridors
+from ..semantic.corridors import domain_resolver, find_corridors
 from .prefilter import find_candidates
 from .project_source import ID_PREFIXES, PROJECT_SOURCE_PREFIX, validate_request
 
@@ -68,10 +68,10 @@ def novelty_pipeline(payload, idea_text, stopwords=()):
     """Bounded id-only drill: corridors → closest works → related claims.
 
     Each stage reports {total, returned, truncated} honestly; nothing in
-    the result is card text — the analyst drills ids through the port.
+    the result is card text — the agent drills ids through the port.
     """
     hits = find_candidates(payload, idea_text, stopwords)
-    domains_of = _domain_resolver(payload)
+    domains_of = domain_resolver(payload)
     hit_domains = sorted(
         {d.split(":", 1)[1] for hit in hits for d in domains_of(hit["node_id"])}
     )
@@ -79,7 +79,7 @@ def novelty_pipeline(payload, idea_text, stopwords=()):
     corridors = []
     for domain_a, domain_b in combinations(hit_domains, 2):
         for corridor in find_corridors(payload, domain_a, domain_b)["corridors"]:
-            # A transfer spanning 3+ hit domains repeats identically for
+            # A bridge card spanning 3+ hit domains repeats identically for
             # every pair — dedup by descriptor (shared-axis entries carry
             # distinct sides per pair and survive naturally).
             if corridor not in corridors:
@@ -109,7 +109,7 @@ def novelty_pipeline(payload, idea_text, stopwords=()):
         for side in ("side_a", "side_b"):
             for node_id in corridor.get(side) or []:
                 add_work(node_id, reason)
-        for spec in corridor.get("edges") or []:  # transfer endpoints
+        for spec in corridor.get("edges") or []:  # bridge endpoints
             add_work(spec.split("->", 1)[1], reason)
     work_total = len(works)
     works = works[:WORK_CAP]

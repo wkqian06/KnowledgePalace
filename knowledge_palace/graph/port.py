@@ -34,9 +34,10 @@ class GraphQueryPort:
                 self._children.setdefault(parent, []).append(child)
         for parent in self._children:
             self._children[parent].sort()
+        self._hierarchies = {spec["id"]: spec for spec in self._payload["hierarchies"]}
         self._level_kinds = {
-            spec["level"]: spec["node_kinds"]
-            for spec in self._payload["hierarchies"][0]["levels"]
+            spec["id"]: {level["level"]: level["node_kinds"] for level in spec["levels"]}
+            for spec in self._payload["hierarchies"]
         }
 
     # -- envelope helpers ---------------------------------------------------
@@ -77,20 +78,21 @@ class GraphQueryPort:
         return self._envelope({"hierarchies": list(self._payload["hierarchies"])})
 
     def list_levels(self, hierarchy_id):
-        spec = self._payload["hierarchies"][0]
-        if hierarchy_id != spec["id"]:
+        spec = self._hierarchies.get(hierarchy_id)
+        if spec is None:
             return self._error("unknown_hierarchy", "no hierarchy %r" % hierarchy_id)
         return self._envelope({"hierarchy_id": hierarchy_id, "levels": spec["levels"]})
 
     def query_level(self, hierarchy_id, level, cursor=None, limit=None):
-        spec = self._payload["hierarchies"][0]
-        if hierarchy_id != spec["id"]:
+        spec = self._hierarchies.get(hierarchy_id)
+        if spec is None:
             return self._error("unknown_hierarchy", "no hierarchy %r" % hierarchy_id)
-        if level not in self._level_kinds:
+        level_kinds = self._level_kinds[hierarchy_id]
+        if level not in level_kinds:
             return self._error(
                 "invalid_request", "hierarchy %r has no level %r" % (hierarchy_id, level)
             )
-        kinds = self._level_kinds[level]
+        kinds = level_kinds[level]
         ids = sorted(
             node_id
             for node_id, view in self._payload["nodes"].items()

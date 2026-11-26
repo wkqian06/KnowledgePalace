@@ -14,7 +14,7 @@ live search is orchestrator territory under that record.
 from ..expansion.candidates import build_hit_index, candidate_key, vault_hit
 
 PROJECT_SOURCE_PREFIX = "project-source:"
-ID_PREFIXES = ("claim:", "work:", "gap:", "concept:", "transfer:", "domain:")
+ID_PREFIXES = ("claim:", "work:", "gap:", "concept:", "bridge:", "domain:")
 EXTERNAL_HOPS = 1
 EXTERNAL_MAX_CANDIDATES = 20
 

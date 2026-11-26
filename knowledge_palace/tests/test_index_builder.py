@@ -5,6 +5,7 @@ import shutil
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from knowledge_palace.graph.builder import (
     build_payload,
@@ -68,10 +69,10 @@ class TestBuild(unittest.TestCase):
         self.assertIn("work:alpha-2020-echo|supports|gap:gap-echo-noise", edge_ids)
         self.assertIn("work:gamma-2022-bridge|identifies|gap:gap-gamma-drift", edge_ids)
         self.assertIn(
-            "transfer:transfer-echo-to-gamma|transfer-from|concept:concept-echo", edge_ids
+            "bridge:bridge-echo-to-gamma|bridge-from|concept:concept-echo", edge_ids
         )
         self.assertIn(
-            "transfer:transfer-echo-to-gamma|transfer-to|gap:gap-gamma-drift", edge_ids
+            "bridge:bridge-echo-to-gamma|bridge-to|gap:gap-gamma-drift", edge_ids
         )
         claim_nodes = [nid for nid, view in nodes.items() if view["kind"] == "claim"]
         self.assertEqual(len(claim_nodes), 4)
@@ -89,15 +90,15 @@ class TestBuild(unittest.TestCase):
         self.assertEqual(report["unresolved_refs"], [])
         self.assertEqual(report["parse_errors"], [])
 
-    def test_dangling_transfer_refs_are_reported(self):
+    def test_dangling_bridge_refs_are_reported(self):
         with tempfile.TemporaryDirectory() as td:
             vault = Path(td) / "vault"
             shutil.copytree(MINI, vault)
-            transfer = vault / "transfers" / "transfer-echo-to-gamma.md"
-            text = transfer.read_text(encoding="utf-8")
+            bridge = vault / "bridges" / "bridge-echo-to-gamma.md"
+            text = bridge.read_text(encoding="utf-8")
             text = text.replace("papers: [alpha-2020-echo]", "papers: [ghost-paper]")
             text = text.replace("gaps: [gap-gamma-drift]", "gaps: [gap-ghost]")
-            transfer.write_text(text, encoding="utf-8")
+            bridge.write_text(text, encoding="utf-8")
             unresolved = build_payload(vault)["identity_report"]["unresolved_refs"]
             self.assertTrue(any("'ghost-paper'" in item for item in unresolved), unresolved)
             self.assertTrue(any("'gap-ghost'" in item for item in unresolved), unresolved)
@@ -110,6 +111,8 @@ class TestBuild(unittest.TestCase):
             self.assertEqual(check(vault, state)[0], "absent")
             write_index(vault, state)
             self.assertEqual(check(vault, state)[0], "fresh")
+            with mock.patch("knowledge_palace.graph.builder.build_payload", side_effect=AssertionError("deep rebuild")):
+                self.assertEqual(check(vault, state, verify_payload=False)[0], "fresh")
             with (vault / "papers" / "alpha-2020-echo.md").open("a", encoding="utf-8") as fh:
                 fh.write("\n")
             status, detail = check(vault, state)

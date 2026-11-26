@@ -59,7 +59,7 @@ button.active { background: #46a; color: #fff; border-color: #46a; }
 .kind-tag { display: inline-block; font-size: 0.7em; color: #fff; border-radius: 3px; padding: 0 4px; margin-right: 4px; background: #789; }
 .kind-domain { background: #46a; } .kind-concept { background: #297; }
 .kind-work { background: #778; } .kind-gap { background: #c72; }
-.kind-transfer { background: #85a; } .kind-claim { background: #999; }
+.kind-bridge { background: #85a; } .kind-claim { background: #999; }
 #detail { flex: 0 0 30%; overflow-y: auto; padding: 14px; border-left: 1px solid #ddd; }
 #detail h2 { margin-top: 0; font-size: 1.05em; }
 .section-title { font-weight: 600; margin-top: 14px; color: #444; }
@@ -92,7 +92,7 @@ const rowsById = new Map();
 
 const KIND_COLORS = {
   domain: '#4466aa', concept: '#229977', work: '#777788',
-  gap: '#cc7722', transfer: '#8855aa',
+  gap: '#cc7722', bridge: '#8855aa',
 };
 
 function el(tag, props, children) {

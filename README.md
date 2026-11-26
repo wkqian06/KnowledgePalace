@@ -50,14 +50,16 @@ answer, Palace collects it, ingests what you select, and continues.
   answer, `init`/`expand` collect it, the selected papers are ingested, and the
   same question continues. On request the outcome is kept in the project's
   research notes.
-- **Briefs** (`/palace brief`) — seven dated views: `onboard`
+- **Briefs** (`/palace brief`) — six dated views: `onboard`
   (domain map + reading path), `map <concept>` (method timeline +
   disputes), `progress <topic>` (questions, advances and remaining evidence),
-  `gaps`, `ideas` (gap × transfer opportunity cards),
-  `transfers`, `bridges` (domain-pair connection report).
-- **Cross-domain discovery** (`/palace discover`) — evidence-backed transfer
+  `gaps`, `ideas` (gap × bridge opportunity cards),
+  `bridges` (bridge cards by status and the domain-pair connection report).
+- **Cross-domain discovery** (`/palace discover`) — evidence-backed bridge
   candidates across shared pattern/function/failure-mode axes, each with
-  non-stopword bridges and a first validation experiment.
+  non-stopword shared concepts and a first validation experiment. `ask` also
+  lists a few bridge candidates with the binding Claim on both sides and raises
+  one only when it bears on the question.
 - **Idea refinement** (`/palace idea refine`) — your idea, critiqued against
   the vault: supporting/opposing/unknown evidence side by side, closest prior
   work, falsifiers, and a minimal validation experiment. Novelty verdicts are
@@ -98,7 +100,7 @@ answer, Palace collects it, ingests what you select, and continues.
 
 
 **Research continuity** — current topic syntheses guide the next bounded reading
-set. Unresolved evidence reviews persist across index rebuilds and reach transfer
+set. Unresolved evidence reviews persist across index rebuilds and reach bridge
 hypotheses, project arguments and declared section dependencies. Project research
 notebooks keep learning goals, decisions and material-linked observations;
 selected external style profiles are read in place. See
@@ -160,7 +162,7 @@ Every flow ends in one packaged confirmation before anything is written.
 ### Using Codex
 
 Run `codex` in the repo root. Codex reads `AGENTS.md` (identical to `CLAUDE.md`),
-discovers the skill at `.agents/skills/palace/` and the nine read-only subagents
+discovers the skill at `.agents/skills/palace/` and the four read-only subagents
 under `.codex/agents/`; nothing needs installing.
 
 - Codex has no per-skill slash commands. Write `$palace` where the examples say
@@ -180,8 +182,8 @@ The authoritative table is [COMMANDS.md](knowledge_palace/protocol/COMMANDS.md).
 | `/palace expand <target>` | follow references/related work from papers, a question or an evidence hole; selected papers are ingested |
 | `/palace ingest [<paths\|dois\|slugs>...]` | read papers and create or update their cards |
 | `/palace ask <question>` | explanation, comparison and continuing research discussion |
-| `/palace brief <view> [<arg>]` | onboard · map · progress · gaps · ideas · transfers · bridges |
-| `/palace discover [<target>]` | cross-domain transfer scouting |
+| `/palace brief <view> [<arg>]` | onboard · map · progress · gaps · ideas · bridges |
+| `/palace discover [<target>]` | cross-domain bridge scouting |
 | `/palace idea refine <text\|file>` | develop a research idea, its contribution and validation |
 | `/palace research <project>` | maintain project questions, decisions, constraints and observations |
 | `/palace write <project\|materials> [<section>]` | draft, outline or substantially revise prose |
@@ -225,7 +227,7 @@ follow Andrej Karpathy's
 KnowledgePalace replaces free-form summary pages with claim-level evidence —
 verbatim quotes with anchors, append-only corrections, confirm-before-write —
 and adds research-specific structure: gap relation tables, cross-domain
-transfers, bounded citation expansion and manuscript workflows.
+bridges, bounded citation expansion and manuscript workflows.
 
 ## License
 

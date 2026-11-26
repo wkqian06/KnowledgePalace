@@ -58,6 +58,38 @@ class TestCitationOverlay(unittest.TestCase):
         overlay = citation_overlay(payload, self.state)
         self.assertEqual(overlay, {"edges": [["work:work-0", "work:work-2"]]})
 
+    def _arxiv_card(self, name, arxiv_id):
+        card = self.vault / "papers" / (name + ".md")
+        old = 'source: "10.9999/%s"' % name.replace("work-", "w")
+        card.write_text(card.read_text(encoding="utf-8").replace(old, 'source: "https://arxiv.org/abs/%s"' % arxiv_id), encoding="utf-8")
+        write_index(self.vault, self.state)
+        return build_bundle(self.vault, self.state)
+
+    def test_merged_published_doi_still_matches_through_request_url(self):
+        payload = self._arxiv_card("work-2", "2202.04200")
+        cache = Path(self.state) / "bibliographic-cache" / "openalex"
+        cache.mkdir(parents=True, exist_ok=True)
+        record = {"doi": "https://doi.org/10.1109/cvpr.2022.01103", "id": "https://openalex.org/W300",
+                  "ids": {"arxiv": "https://arxiv.org/abs/2202.04200"}, "referenced_works": ["https://openalex.org/W100"]}
+        (cache / "m.json").write_text(json.dumps({"url": "https://api.openalex.org/works/doi:10.48550/arxiv.2202.04200", "payload": record}), encoding="utf-8")
+        cache_entry(self.state, "a", "10.9999/w0", "W100", ["W300"])
+        overlay = citation_overlay(payload, self.state)
+        self.assertEqual(overlay, {"edges": [["work:work-0", "work:work-2"], ["work:work-2", "work:work-0"]]})
+
+    def test_semantic_scholar_and_crossref_reference_lists_add_edges(self):
+        payload = self._arxiv_card("work-2", "2306.06079")
+        root = Path(self.state) / "bibliographic-cache"
+        (root / "semanticscholar").mkdir(parents=True)
+        (root / "semanticscholar" / "s.json").write_text(json.dumps({
+            "url": "https://api.semanticscholar.org/graph/v1/paper/ARXIV:2306.06079/references?fields=title,externalIds&limit=100",
+            "payload": {"data": [{"citedPaper": {"externalIds": {"DOI": "10.9999/W0"}}}, {"citedPaper": {"externalIds": {"ArXiv": "9999.00001"}}}]}}), encoding="utf-8")
+        (root / "crossref").mkdir(parents=True)
+        (root / "crossref" / "c.json").write_text(json.dumps({
+            "url": "https://api.crossref.org/works/10.9999/w1",
+            "payload": {"message": {"DOI": "10.9999/w1", "reference": [{"DOI": "10.9999/w0"}, {"unstructured": "no doi"}]}}}), encoding="utf-8")
+        overlay = citation_overlay(payload, self.state)
+        self.assertEqual(overlay, {"edges": [["work:work-1", "work:work-0"], ["work:work-2", "work:work-0"]]})
+
     def test_duplicate_doi_gets_no_edges(self):
         card = self.vault / "papers" / "work-1.md"
         card.write_text(

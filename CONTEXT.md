@@ -98,7 +98,7 @@ _Avoid_: Citation count, evidence relation
 **Potential Link**:
 An explainable but unconfirmed connection suggested by the graph for later
 evidence review.
-_Avoid_: Transfer, established relation
+_Avoid_: Bridge card, established relation
 
 ## Views, Query, and Governance
 
@@ -216,7 +216,7 @@ Research Notes on request.
 _Avoid_: Numeric feasibility score, field-completeness check
 
 **Pending Update**:
-A judgment (Gap/Brief/Transfer synthesis or project decision) whose declared
+A judgment (Gap/Brief/Bridge synthesis or project decision) whose declared
 evidence dependencies changed at index maintenance; it stays pending until a
 recorded review (retain / revise / withdraw) and reopens on later changes.
 _Avoid_: Automatic revision, authoritative edit
@@ -280,9 +280,10 @@ and never duplicates protocol bodies.
 _Avoid_: Protocol authority, second protocol copy
 
 **Role Contract**:
-The platform-neutral definition of one optional read-only specialist in the
-Shared Core, bound unchanged by every runtime's adapter; the main agent may
-run any workflow itself.
+The platform-neutral definition of one of the four optional read-only
+subagents in the Shared Core (paper reading, source audit, writing review, style
+curation), bound unchanged by every runtime's adapter; without it the main agent
+performs the step under the same definition.
 _Avoid_: Runtime adapter, mandatory sequence
 
 **Source Coverage and Reading Depth**:

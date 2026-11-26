@@ -34,7 +34,7 @@ Codex）里跟它对话，它帮你把读过的论文整理成一套 Markdown �
 - **顺着引用扩展文献**（`/palace expand`）——沿引用关系往外找新论文，
   但深度最多 2 层、数量有上限，选或不选每篇都有记录。不会失控乱爬。
 - **多领域共存**（`/palace domain add`）——每个领域有自己的概念树，
-  领域之间只通过"桥"相连（共享的抽象概念、迁移卡），不允许一个领域
+  领域之间只通过"桥"相连（共享的抽象概念、桥接卡），不允许一个领域
   当另一个领域的上级。
 
 **问它问题**
@@ -43,14 +43,15 @@ Codex）里跟它对话，它帮你把读过的论文整理成一套 Markdown �
   陈述引用对应 Claim；背景解释、系统假设和你的观察分开标明，不冒充
   文献。需要补文献且你允许时，它会调用 init/expand 搜集、把选定论文
   入库，再接着回答同一个问题。你说"记下来"，结论就进项目的研究笔记。
-- **简报**（`/palace brief`）——七种视图：`onboard`（领域入门地图 +
+- **简报**（`/palace brief`）——六种视图：`onboard`（领域入门地图 +
   推荐阅读顺序）、`map`（某个概念的方法演进时间线）、`progress <topic>`
   （问题演进、已有推进、剩余问题与证据覆盖）、`gaps`（开放
-  问题排行）、`ideas`（研究机会卡）、`transfers`（跨领域迁移雷达）、
-  `bridges`（两个领域之间有哪些联系）。
+  问题排行）、`ideas`（研究机会卡）、
+  `bridges`（桥接卡现状，以及两个领域之间有哪些联系）。
 - **跨领域找灵感**（`/palace discover`）——在不同领域之间找"这个方法
-  也许能搬过来用"的迁移候选，每个候选都要有实打实的桥接概念和一个
-  能先做的验证实验。泛泛的"都用了深度学习"不算桥。
+  也许能搬过来用"的桥接候选，每个候选都要有实打实的共享概念和一个
+  能先做的验证实验。泛泛的"都用了深度学习"不算桥。`ask` 讨论时也会
+  带上几个桥接候选，两边各附一条原文 Claim，只在和问题真正相关时才提。
 - **打磨你的想法**（`/palace idea refine`）——把你的 idea 丢给它，它用
   库里的证据帮你审：哪些证据支持、哪些反对、最像的前人工作是谁、怎么
   证伪、最小验证实验是什么。它只说"相对这个库新不新"，不吹"全世界
@@ -84,7 +85,7 @@ Codex）里跟它对话，它帮你把读过的论文整理成一套 Markdown �
 
 
 **持续研究**——已有主题综合参与下一次有界阅读；未处理的证据审核事项在索引
-维护后保留，并关联迁移假设、项目论证和声明了证据依赖的章节。项目研究笔记
+维护后保留，并关联桥接假设、项目论证和声明了证据依赖的章节。项目研究笔记
 保存学习目标、研究决策和有材料来源的观察；指定的外部文风档案直接读取。
 详见[证据工作流](knowledge_palace/protocol/EVIDENCE.md)。
 
@@ -135,7 +136,7 @@ python3 -m knowledge_palace.tools.config_resolver
 
 在仓库根目录运行 `codex` 即可。Codex 会读取 `AGENTS.md`（与 `CLAUDE.md` 内容
 一致），自动发现 `.agents/skills/palace/` 里的 skill 和 `.codex/agents/` 下的
-九个只读子代理，不需要额外安装。
+四个只读子代理，不需要额外安装。
 
 - Codex 没有单个 skill 的斜杠命令。示例里的 `/palace` 换成 `$palace`
   （如 `$palace status`、`$palace ingest <DOI>`），或者从 `/skills` 里选。
@@ -154,8 +155,8 @@ python3 -m knowledge_palace.tools.config_resolver
 | `/palace expand <目标>` | 从论文、问题或证据缺口沿引用扩展；选定论文自动入库 |
 | `/palace ingest [<路径\|DOI\|slug>...]` | 阅读论文，创建或更新论文卡 |
 | `/palace ask <问题>` | 解释、比较和多轮科研讨论 |
-| `/palace brief <视图> [<参数>]` | 七种视图：onboard · map · progress · gaps · ideas · transfers · bridges |
-| `/palace discover [<目标>]` | 跨领域迁移侦察 |
+| `/palace brief <视图> [<参数>]` | 六种视图：onboard · map · progress · gaps · ideas · bridges |
+| `/palace discover [<目标>]` | 跨领域桥接侦察 |
 | `/palace idea refine <文本\|文件>` | 发展你的研究想法、贡献和验证方向 |
 | `/palace research <项目>` | 维护项目的问题、决策、约束和观察 |
 | `/palace write <项目\|材料> [<章节>]` | 初稿、大纲和实质性重写 |
@@ -188,7 +189,7 @@ python3 -m knowledge_palace.tools.config_resolver
 ingest–query–lint 循环和 INDEX 优先的导航方式，沿用了 Andrej Karpathy 的
 [LLM Wiki 模式](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)。
 KnowledgePalace 把自由摘要页换成了 Claim 级证据——逐字引句加出处、勘误只
-追加、先确认后写入——并加入科研专用结构：缺口关系表、跨领域迁移、有界的
+追加、先确认后写入——并加入科研专用结构：缺口关系表、跨领域桥接、有界的
 引用扩展和论文写作流程。
 
 ## 许可证

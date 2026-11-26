@@ -1,4 +1,4 @@
-"""Resolve the four private roots from ``<Framework root>/.palace.toml``.
+"""Resolve the four private roots from an explicit or nearest .palace.toml.
 
 Contract (PROTOCOL.md "Storage resolution"): relative values resolve against
 the config file's directory, never the shell CWD; the four roots must exist
@@ -61,7 +61,13 @@ def parse_palace_toml(text, origin=".palace.toml"):
 
 def resolve_roots(config_path=None):
     """Return {key: absolute Path} for the four roots, fully validated."""
-    path = Path(config_path) if config_path else framework_root() / ".palace.toml"
+    if config_path:
+        path = Path(config_path)
+    else:
+        # A working directory inside a library chooses its nearest explicit
+        # configuration; ordinary sessions retain the framework default.
+        path = next((parent / '.palace.toml' for parent in (Path.cwd(), *Path.cwd().parents)
+                     if (parent / '.palace.toml').is_file()), framework_root() / '.palace.toml')
     if not path.is_file():
         raise ConfigError("config not found: %s" % path)
     values = parse_palace_toml(path.read_text(encoding="utf-8"), origin=str(path))
@@ -89,7 +95,7 @@ def run(argv):
     parser = argparse.ArgumentParser(
         prog="config_resolver", description=__doc__.splitlines()[0]
     )
-    parser.add_argument("--config", help="path to .palace.toml (default: Framework root)")
+    parser.add_argument("--config", help="path to .palace.toml (default: nearest ancestor, then Framework root)")
     parser.add_argument(
         "--check", action="store_true", help="validate only, print nothing on success"
     )

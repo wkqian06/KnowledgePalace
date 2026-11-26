@@ -2,7 +2,7 @@
 
 Generates ``wiki/`` next to the Vault (both under one Obsidian root) from the
 same frozen-GraphQueryPort walk the HTML viewer uses: ``overview.md`` plus one
-hub page per domain/concept/gap/transfer, all cross-references as
+hub page per domain/concept/gap/bridge, all cross-references as
 path-qualified ``[[wikilinks]]``. Cards are the single source of truth — no
 per-work pages, no card prose copied; hub pages carry only link topology and
 index metadata.
@@ -27,7 +27,7 @@ from .export import build_bundle
 
 DEFAULT_DIRNAME = "wiki"
 MARKER_KEY = "palace_generated"
-PAGE_DIRS = {"domain": "domains", "concept": "concepts", "gap": "gaps", "transfer": "transfers"}
+PAGE_DIRS = {"domain": "domains", "concept": "concepts", "gap": "gaps", "bridge": "bridges"}
 GAP_RELATIONS = ("identifies", "supports", "partially_addresses", "disputes", "reframes")
 
 
@@ -209,7 +209,7 @@ def build_pages(payload, vault_name, wiki_name):
                 "Gaps concerning this", edge_targets(lambda k: k == "concerns", "to", node_id)
             )
             body += section(
-                "Transfer bridges", edge_targets(lambda k: k == "bridge", "to", node_id)
+                "Bridges via this concept", edge_targets(lambda k: k == "via", "to", node_id)
             )
 
         elif kind == "gap":
@@ -230,20 +230,20 @@ def build_pages(payload, vault_name, wiki_name):
             )
             body += section("Related gaps", related)
             body += section(
-                "Addressed by transfers",
+                "Addressed by bridges",
                 edge_targets(lambda k: k == "addresses", "to", node_id),
             )
 
-        elif kind == "transfer":
+        elif kind == "bridge":
             body += [
                 "status: %s" % attrs.get("status", "?"),
                 "",
                 "**Card:** %s" % _card_ref(view, vault_name, slug),
                 "",
             ]
-            body += section("From", edge_targets(lambda k: k == "transfer-from", "from", node_id))
-            body += section("To", edge_targets(lambda k: k == "transfer-to", "from", node_id))
-            body += section("Bridges", edge_targets(lambda k: k == "bridge", "from", node_id))
+            body += section("From", edge_targets(lambda k: k == "bridge-from", "from", node_id))
+            body += section("To", edge_targets(lambda k: k == "bridge-to", "from", node_id))
+            body += section("Via", edge_targets(lambda k: k == "via", "from", node_id))
             body += section("Addresses", edge_targets(lambda k: k == "addresses", "from", node_id))
             body += section(
                 "Evidence papers", edge_targets(lambda k: k == "evidence-paper", "from", node_id)

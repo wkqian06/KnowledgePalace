@@ -244,8 +244,15 @@ class SemanticScholarProvider(LiteratureProvider):
     FIELDS = "title,year,venue,citationCount,externalIds"
 
     def _paper_id(self, ref):
-        if ref.get("doi"):
-            return "DOI:" + _clean_doi(ref["doi"])
+        from urllib.parse import quote
+
+        doi = _clean_doi(ref.get("doi")) if ref.get("doi") else None
+        if doi and doi.startswith("10.48550/arxiv."):
+            # Semantic Scholar indexes arXiv papers by arXiv id, not by the DataCite DOI.
+            return "ARXIV:" + (ref.get("arxiv") or doi[len("10.48550/arxiv."):])
+        if doi:
+            # Old journal DOIs contain <, >, ; and parentheses; keep them inside one path segment.
+            return "DOI:" + quote(doi, safe="/.:-_")
         if ref.get("arxiv"):
             return "ARXIV:" + ref["arxiv"]
         if ref.get("s2"):

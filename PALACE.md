@@ -37,17 +37,18 @@ Palace performs no Git operation in the Vault.
 | failure-mode | Recurring ways approaches fail | shared across domains |
 
 Cross-domain relations live ONLY in shared axes (pattern/function/failure-mode),
-transfer cards, or a gap card's `related:` field. NEVER as `Parents` edges between
+bridge cards, or a gap card's `related:` field. NEVER as `Parents` edges between
 domain subtrees — between top-level domains there are only bridges, no hierarchy.
 
-## Hub stopwords (banned as transfer bridges)
+## Hub stopwords (banned as bridge concepts)
 
 `deep-learning, machine-learning, neural-network, ai, artificial-intelligence,
 model, data, dataset, prediction, algorithm, learning, training, optimization,
 performance, accuracy, evaluation, benchmark, framework, architecture`
 
-palace-scout must not count any of these as a bridge concept; a candidate transfer
-whose only bridges are stopwords is `spurious_relation` (report and drop).
+`discover` and `ask` bridge candidates must not count any of these as a shared
+concept; a candidate bridge whose only `via` concepts are stopwords is
+`spurious_relation` (report and drop).
 
 ## Bibliographic context bands (display and field attention)
 
@@ -86,7 +87,7 @@ whose only bridges are stopwords is `spurious_relation` (report and drop).
   release, operational deployment); the reason MUST be persisted inside the
   `weight:` derivation annotation.
 
-### Evidence judgment (extractor/linker/analyst/auditor)
+### Evidence judgment (reading, alignment, briefs and audits)
 
 1. Gap status changes cite concrete Claims, study design, evidence directness,
    applicable conditions and the subquestions advanced or left open. Citation
@@ -153,10 +154,10 @@ code_usage: "<repo, stars/downloads, kind, YYYY-MM>" # dated snapshot, display-o
 |---|---|
 | discover gate | ≥ 15 papers total AND ≥ 3 cross-domain papers (a cross-domain paper = its `domain:` array contains ≥ 1 registered slug outside the home domain's subtree; a domain is registered, via `domain add` or at ingest, BEFORE its papers' cards are saved) |
 | concept promotion | candidate → canonical at ≥ 3 confirmed supporting papers that genuinely USE the concept, with evidence from distinct data or analyses, assessed under evidence rule 2. Baseline-only comparison does not count (see Concept conventions); dependent support keeps the row candidate with a note. |
-| new concept proposals | ≤ 5 per paper (linker) |
-| linker prefilter budget | 5–15 candidate cards per paper; INDEX-first, never full-vault reads |
+| new concept proposals | ≤ 5 per paper (ingest alignment) |
+| ingest alignment prefilter | 5–15 candidate cards per paper; INDEX-first, never full-vault reads |
 | batch ingest size | 5–10 papers per batch, one merged confirmation |
-| govern cadence | every ~20 ingested papers, or when a trigger fires |
+| govern cadence | every ~20 ingested papers, or when a trigger fires; the judgments an ingest queues are reviewed in that ingest through `updates` |
 | style profile stability | rule is `stable` at support ≥ 3 sources and no open conflicts |
 | V2 trigger | backlog > 20 unprocessed papers, or ≥ 10 papers/week making per-paper confirmation the bottleneck |
 
